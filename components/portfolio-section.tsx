@@ -254,7 +254,7 @@ export function PortfolioSection({ initialItems }: PortfolioSectionProps) {
                   <p className="text-base font-semibold text-foreground">
                     {displayName}
                   </p>
-                  {showInstagram ? (
+                  {showInstagram && creator.instagram_handle ? (
                     <p className="text-[10px] text-muted-foreground">
                       {creator.instagram_handle.startsWith("@")
                         ? creator.instagram_handle
