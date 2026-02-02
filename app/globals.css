@@ -1,26 +1,255 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
+@custom-variant dark (&:is(.dark *));
+
+/* Minimal cool neutral theme */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #F6F7FB;
+  --foreground: #0F1117;
+  --card: #FFFFFF;
+  --card-foreground: #0F1117;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F1117;
+  --primary: #0F1117;
+  --primary-foreground: #FFFFFF;
+  --secondary: #E8ECF5;
+  --secondary-foreground: #0F1117;
+  --muted: #EEF1F6;
+  --muted-foreground: #5C6470;
+  --accent: #5B7CFF;
+  --accent-foreground: #FFFFFF;
+  --destructive: #E04F4F;
+  --destructive-foreground: #FFFFFF;
+  --border: #E3E6EE;
+  --input: #EEF1F6;
+  --ring: #5B7CFF;
+  --chart-1: #5B7CFF;
+  --chart-2: #35B6FF;
+  --chart-3: #7C5CFF;
+  --chart-4: #20C997;
+  --chart-5: #9AA3B2;
+  --radius: 0.9rem;
+  --sidebar: #F2F4F8;
+  --sidebar-foreground: #0F1117;
+  --sidebar-primary: #0F1117;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #E8ECF5;
+  --sidebar-accent-foreground: #0F1117;
+  --sidebar-border: #E3E6EE;
+  --sidebar-ring: #5B7CFF;
+}
+
+.dark {
+  --background: #0F1117;
+  --foreground: #F5F7FA;
+  --card: #151A23;
+  --card-foreground: #F5F7FA;
+  --popover: #151A23;
+  --popover-foreground: #F5F7FA;
+  --primary: #F5F7FA;
+  --primary-foreground: #0F1117;
+  --secondary: #1D2330;
+  --secondary-foreground: #DDE2EA;
+  --muted: #1C212C;
+  --muted-foreground: #8A94A6;
+  --accent: #5B7CFF;
+  --accent-foreground: #0F1117;
+  --destructive: #E06161;
+  --destructive-foreground: #0F1117;
+  --border: #242B3A;
+  --input: #1C212C;
+  --ring: #5B7CFF;
+  --chart-1: #5B7CFF;
+  --chart-2: #35B6FF;
+  --chart-3: #7C5CFF;
+  --chart-4: #20C997;
+  --chart-5: #9AA3B2;
+  --sidebar: #151A23;
+  --sidebar-foreground: #F5F7FA;
+  --sidebar-primary: #F5F7FA;
+  --sidebar-primary-foreground: #0F1117;
+  --sidebar-accent: #1D2330;
+  --sidebar-accent-foreground: #DDE2EA;
+  --sidebar-border: #242B3A;
+  --sidebar-ring: #5B7CFF;
 }
 
 @theme inline {
+  --font-sans: 'DM Sans', 'DM Sans Fallback', sans-serif;
+  --font-serif: 'Playfair Display', 'Playfair Display Fallback', serif;
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback', monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 8px);
+  --radius-2xl: calc(var(--radius) + 16px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Custom soft shadow utility */
+.boty-shadow {
+  box-shadow: rgba(14, 63, 126, 0.04) 0px 0px 0px 1px,
+    rgba(42, 51, 69, 0.04) 0px 1px 1px -0.5px,
+    rgba(42, 51, 70, 0.04) 0px 3px 3px -1.5px,
+    rgba(42, 51, 70, 0.04) 0px 6px 6px -3px,
+    rgba(14, 63, 126, 0.04) 0px 12px 12px -6px,
+    rgba(14, 63, 126, 0.04) 0px 24px 24px -12px;
+}
+
+/* Smooth transitions */
+.boty-transition {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hero textures */
+.hero-grid {
+  background-image: linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0.12) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.12) 1px,
+      transparent 1px
+    );
+  background-size: 72px 72px;
+  opacity: 0.2;
+}
+
+.hero-noise {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.3'/%3E%3C/svg%3E");
+  opacity: 0.12;
+  mix-blend-mode: soft-light;
+}
+
+/* Blur in animation */
+@keyframes blur-in {
+  0% {
+    opacity: 0;
+    filter: blur(12px);
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.animate-blur-in {
+  animation: blur-in 0.8s ease-out;
+}
+
+/* Scale fade in animation */
+@keyframes scale-fade-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-fade-in {
+  animation: scale-fade-in 0.6s ease-out;
+}
+
+/* Monetization hover bubbles */
+@keyframes bubble-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-6px) scale(1.08);
+  }
+  80% {
+    transform: translateY(2px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.monetization-bubbles {
+  pointer-events: none;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+  transform: translate(-50%, -50%);
+}
+
+.monetization-bubble {
+  display: flex;
+  height: 56px;
+  width: 56px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 60%, transparent);
+  background: color-mix(in srgb, var(--primary) 88%, transparent);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary-foreground);
+  opacity: 0;
+  transform: translateY(12px) scale(0.6);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 18px 34px rgba(15, 17, 23, 0.26),
+    0 8px 16px rgba(15, 17, 23, 0.24);
+}
+
+.monetization-card:hover .monetization-bubble {
+  animation: bubble-pop 0.55s ease-out forwards;
 }
