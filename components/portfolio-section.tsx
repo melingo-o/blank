@@ -185,11 +185,17 @@ export function PortfolioSection({ initialItems }: PortfolioSectionProps) {
                   : index === 2
                     ? { month: "2026. 08" }
                     : null
+            const comingSoonImage =
+              index === 1
+                ? "/coming-soon-2026-04.png"
+                : index === 2
+                  ? "/coming-soon-2026-08.png"
+                  : null
             const displayName = comingSoon?.month ?? creator.name
             const displayNiche = comingSoon ? "COMING SOON" : creator.niche
             const showInstagram =
               !comingSoon && Boolean(creator.instagram_handle)
-            const hideImage = index === 1 || index === 2
+            const displayImage = comingSoonImage ?? creator.image_url
 
             return (
               <article
@@ -202,16 +208,19 @@ export function PortfolioSection({ initialItems }: PortfolioSectionProps) {
                 style={{ transitionDelay: `${index * 120}ms` }}
               >
               <div className="relative h-72 w-full overflow-hidden">
-                {!hideImage && (
+                {displayImage ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={creator.image_url}
-                    alt={`${displayName} profile`}
+                    src={displayImage}
+                    alt={
+                      comingSoon
+                        ? `${displayName} coming soon`
+                        : `${displayName} profile`
+                    }
                     className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                     loading="lazy"
                   />
-                )}
-                {hideImage && (
+                ) : (
                   <div className="absolute inset-0 bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-700/60" />
                 )}
                 {comingSoon ? (
