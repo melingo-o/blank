@@ -234,8 +234,10 @@ body.creator-workspace-modal-open [data-site-header] {
 
 .creator-workspace-modal {
   background:
-    linear-gradient(180deg, rgba(15, 17, 23, 0.32), rgba(15, 17, 23, 0.44));
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.28), transparent 36%),
+    linear-gradient(180deg, rgba(244, 246, 250, 0.78), rgba(227, 232, 240, 0.82));
   animation: creator-workspace-modal-in 180ms ease-out;
+  backdrop-filter: saturate(1.02);
 }
 
 .creator-workspace-modal__panel {

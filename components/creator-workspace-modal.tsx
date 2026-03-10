@@ -132,18 +132,17 @@ export function CreatorWorkspaceModal({
             }
           }}
         >
-          <div className="creator-workspace-modal__panel w-full max-w-md rounded-[32px] border border-white/20 bg-white p-8 text-slate-900 shadow-[0_32px_80px_rgba(15,17,23,0.28)]">
+          <div className="creator-workspace-modal__panel w-full max-w-[520px] rounded-[32px] border border-white/70 bg-white/95 p-8 text-slate-900 shadow-[0_28px_72px_rgba(15,17,23,0.18)]">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
-                  Creator Workspace
+                  크리에이터 워크스페이스
                 </p>
-                <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
-                  Log in to your private board
+                <h2 className="mt-3 text-[2rem] leading-tight font-semibold tracking-tight text-slate-950">
+                  워크스페이스에서 창작영감을 얻으세요
                 </h2>
                 <p className="mt-3 text-sm leading-6 text-slate-500">
-                  Enter the ID and password that we issued to open your shared
-                  workspace.
+                  발급받은 아이디와 비밀번호를 입력해 주세요.
                 </p>
               </div>
               <button
@@ -157,10 +156,10 @@ export function CreatorWorkspaceModal({
             </div>
 
             <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
-              <div>
+              <div className="grid grid-cols-[56px_minmax(0,1fr)] items-center gap-4">
                 <label
                   htmlFor="creator-workspace-login-id"
-                  className="block text-sm font-medium text-slate-700"
+                  className="text-sm font-semibold tracking-[0.22em] text-slate-500"
                 >
                   ID
                 </label>
@@ -171,16 +170,16 @@ export function CreatorWorkspaceModal({
                   value={loginId}
                   onChange={(event) => setLoginId(event.target.value)}
                   placeholder="chaehee"
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white"
                   required
                 />
               </div>
-              <div>
+              <div className="grid grid-cols-[56px_minmax(0,1fr)] items-center gap-4">
                 <label
                   htmlFor="creator-workspace-password"
-                  className="block text-sm font-medium text-slate-700"
+                  className="text-sm font-semibold tracking-[0.22em] text-slate-500"
                 >
-                  Password
+                  PW
                 </label>
                 <input
                   id="creator-workspace-password"
@@ -188,8 +187,8 @@ export function CreatorWorkspaceModal({
                   autoComplete="current-password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Enter your password"
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white"
+                  placeholder="비밀번호 입력"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white"
                   required
                 />
               </div>
@@ -201,14 +200,9 @@ export function CreatorWorkspaceModal({
                 disabled={isSubmitting}
                 className="inline-flex w-full items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
               >
-                {isSubmitting ? "Signing in..." : "Open workspace"}
+                {isSubmitting ? "로그인 중..." : "워크스페이스 열기"}
               </button>
             </form>
-
-            <p className="mt-5 text-xs leading-5 text-slate-500">
-              Admin access is available from the <span className="font-medium text-slate-700">Admin</span>{" "}
-              link in the footer.
-            </p>
           </div>
         </div>
       )}
