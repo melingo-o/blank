@@ -19,7 +19,7 @@ async function findContentForCreator(supabase, creatorId, contentId) {
   );
 }
 
-exports.handler = async function handler(event, context) {
+exports.handler = async function handler(event) {
   try {
     if (event.httpMethod !== "POST") {
       return json(405, { error: "Method not allowed." });
@@ -31,7 +31,7 @@ exports.handler = async function handler(event, context) {
     const payload = body.payload || {};
     const supabase = createSupabaseAdmin();
     const { user } = await authorizeCreatorAccess({
-      context,
+      event,
       supabase,
       creatorId
     });

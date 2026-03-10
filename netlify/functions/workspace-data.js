@@ -6,7 +6,7 @@ const {
   loadWorkspaceData
 } = require("./utils/workspace");
 
-exports.handler = async function handler(event, context) {
+exports.handler = async function handler(event) {
   try {
     if (event.httpMethod !== "GET") {
       return json(405, { error: "Method not allowed." });
@@ -16,7 +16,7 @@ exports.handler = async function handler(event, context) {
     const supabase = createSupabaseAdmin();
 
     await authorizeCreatorAccess({
-      context,
+      event,
       supabase,
       creatorId
     });

@@ -29,8 +29,6 @@ const ATTACHMENT_LABELS = {
 const state = {
   config: null,
   supabase: null,
-  identity: null,
-  identityUser: null,
   session: null,
   creatorId: null,
   creators: [],
@@ -67,13 +65,16 @@ function collectRefs() {
   refs.timeline = document.getElementById("panel-timeline");
   refs.modal = document.getElementById("workspace-modal");
   refs.toast = document.getElementById("workspace-toast");
+  refs.authForm = document.querySelector("[data-workspace-auth-form]");
+  refs.authLoginId = document.getElementById("workspace-login-id");
+  refs.authPassword = document.getElementById("workspace-password");
+  refs.authSubmit = document.querySelector("[data-workspace-auth-submit]");
 }
 
 function bindGlobalUI() {
-  document.querySelectorAll("[data-open-identity]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.identity?.open();
-    });
+  refs.authForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await handleWorkspaceLogin();
   });
 
   refs.modal?.addEventListener("click", (event) => {
@@ -97,7 +98,7 @@ function bindGlobalUI() {
 
 async function boot() {
   await loadConfig();
-  await initIdentity();
+  await initSession();
 }
 
 async function loadConfig() {
@@ -112,52 +113,81 @@ async function loadConfig() {
   state.supabase = createClient(payload.supabaseUrl, payload.supabaseAnonKey);
 }
 
-async function initIdentity() {
-  if (!window.netlifyIdentity) {
-    showAuthGate("Netlify Identity failed to load. Check that the widget script is available.");
-    return;
-  }
+async function initSession() {
+  const {
+    data: { session }
+  } = await state.supabase.auth.getSession();
 
-  state.identity = window.netlifyIdentity;
-
-  state.identity.on("login", async (user) => {
-    state.identity.close();
-    await handleAuthenticatedUser(user);
-  });
-
-  state.identity.on("logout", () => {
-    clearWorkspace();
-    showAuthGate();
-    showToast("Signed out.", "success");
-  });
-
-  state.identity.on("error", (error) => {
-    console.error(error);
-    showToast(error?.message || "Identity error.", "error");
-  });
-
-  const initialUser = await new Promise((resolve) => {
-    const handleInit = (user) => {
-      if (typeof state.identity.off === "function") {
-        state.identity.off("init", handleInit);
-      }
-      resolve(user);
-    };
-
-    state.identity.on("init", handleInit);
-    state.identity.init();
-  });
-
-  if (initialUser) {
-    await handleAuthenticatedUser(initialUser);
+  if (session) {
+    await handleAuthenticatedSession();
     return;
   }
 
   showAuthGate();
 }
 
-async function handleAuthenticatedUser(user) {
-  state.identityUser = user;
+async function handleWorkspaceLogin() {
+  const loginId = refs.authLoginId?.value?.trim() || "";
+  const password = refs.authPassword?.value || "";
+
+  if (!loginId || !password) {
+    showToast("Enter your assigned ID and password.", "error");
+    return;
+  }
+
+  if (refs.authSubmit instanceof HTMLButtonElement) {
+    refs.authSubmit.disabled = true;
+    refs.authSubmit.textContent = "Signing in...";
+  }
+
+  try {
+    const response = await fetch("/.netlify/functions/workspace-password-login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        loginId,
+        password,
+        mode: "workspace"
+      })
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(payload.error || "Unable to sign in.");
+    }
+
+    const { error } = await state.supabase.auth.setSession({
+      access_token: payload.accessToken,
+      refresh_token: payload.refreshToken
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    refs.authForm?.reset();
+
+    if (payload.redirectTo && payload.redirectTo !== window.location.pathname) {
+      window.location.assign(payload.redirectTo);
+      return;
+    }
+
+    await initSession();
+    showToast("Signed in.", "success");
+  } catch (error) {
+    console.error(error);
+    showToast(error.message || "Unable to sign in.", "error");
+  } finally {
+    if (refs.authSubmit instanceof HTMLButtonElement) {
+      refs.authSubmit.disabled = false;
+      refs.authSubmit.textContent = "Enter workspace";
+    }
+  }
+}
+
+async function handleAuthenticatedSession() {
   showLayout();
   renderLoadingShell();
 
@@ -345,8 +375,11 @@ function bindSidebarEvents() {
     });
   });
 
-  refs.sidebar.querySelector("[data-sign-out]")?.addEventListener("click", () => {
-    state.identity?.logout();
+  refs.sidebar.querySelector("[data-sign-out]")?.addEventListener("click", async () => {
+    await state.supabase.auth.signOut();
+    clearWorkspace();
+    showAuthGate("You have signed out.");
+    showToast("Signed out.", "success");
   });
 
   refs.sidebar
@@ -563,7 +596,7 @@ function renderNoAccess() {
         <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">No workspace linked</p>
         <h1 class="mt-3 text-2xl font-semibold text-slate-950">Your account is signed in, but no creator workspace is assigned yet.</h1>
         <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-500">
-          Ask the company admin to connect your Netlify Identity email to a creator record using the
+          Ask the company admin to connect your Supabase Auth email to a creator record using the
           <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">login_email</code> field.
         </p>
       </div>
@@ -915,13 +948,16 @@ async function uploadAttachment({ contentId, title, kind, file }) {
 }
 
 async function authorizedJson(url, options = {}) {
-  if (!state.identityUser) {
+  const {
+    data: { session }
+  } = await state.supabase.auth.getSession();
+
+  if (!session?.access_token) {
     throw new Error("Login required.");
   }
 
-  const token = await state.identityUser.jwt();
   const headers = new Headers(options.headers || {});
-  headers.set("Authorization", `Bearer ${token}`);
+  headers.set("Authorization", `Bearer ${session.access_token}`);
 
   if (options.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
@@ -936,6 +972,7 @@ async function authorizedJson(url, options = {}) {
 
   if (!response.ok) {
     if (response.status === 401) {
+      await state.supabase.auth.signOut();
       clearWorkspace();
       showAuthGate("Your session expired. Please sign in again.");
     }
@@ -969,8 +1006,10 @@ function showAuthGate(message = "") {
   if (note) {
     note.textContent =
       message ||
-      "Sign in with your Netlify Identity account to enter your private workspace.";
+      "Sign in with the creator ID and password that the team assigned to you.";
   }
+
+  refs.authLoginId?.focus();
 }
 
 function showLayout() {
@@ -979,7 +1018,6 @@ function showLayout() {
 }
 
 function clearWorkspace() {
-  state.identityUser = null;
   state.session = null;
   state.creatorId = null;
   state.creators = [];
@@ -996,6 +1034,7 @@ function clearWorkspace() {
   refs.feedback.innerHTML = "";
   refs.timeline.innerHTML = "";
   closeModal();
+  refs.authForm?.reset();
 }
 
 function showToast(message, tone = "success") {

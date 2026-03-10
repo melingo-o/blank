@@ -16,7 +16,6 @@
         }
       };
     </script>
-    <script defer src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
     <link rel="stylesheet" href="/workspace/workspace.css" />
   </head>
   <body class="workspace-body min-h-screen text-slate-900">
@@ -28,16 +27,38 @@
             Private planning board for creators and the company team.
           </h1>
           <p class="mt-4 text-sm leading-7 text-slate-500" data-auth-note>
-            Sign in with your Netlify Identity account to enter your private workspace.
+            Sign in with the creator ID and password that the team assigned to you.
           </p>
-          <div class="mt-8 flex flex-wrap gap-3">
+          <form class="mt-8 space-y-4" data-workspace-auth-form>
+            <div>
+              <label for="workspace-login-id" class="block text-sm font-medium text-slate-700">Creator ID</label>
+              <input
+                id="workspace-login-id"
+                type="text"
+                autocomplete="username"
+                placeholder="chaehee"
+                class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white"
+              />
+            </div>
+            <div>
+              <label for="workspace-password" class="block text-sm font-medium text-slate-700">Password</label>
+              <input
+                id="workspace-password"
+                type="password"
+                autocomplete="current-password"
+                placeholder="Enter your password"
+                class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white"
+              />
+            </div>
             <button
-              type="button"
-              data-open-identity
-              class="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+              type="submit"
+              data-workspace-auth-submit
+              class="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
             >
-              Log in with Netlify Identity
+              Enter workspace
             </button>
+          </form>
+          <div class="mt-4 flex flex-wrap gap-3">
             <a
               href="/"
               class="inline-flex items-center justify-center rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"

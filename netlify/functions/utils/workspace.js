@@ -69,6 +69,18 @@ function createSupabaseAdmin() {
   });
 }
 
+function createSupabaseAuthClient() {
+  const url = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
+  const anonKey = requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+
+  return createClient(url, anonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+}
+
 function getStorageBucket() {
   return process.env.WORKSPACE_STORAGE_BUCKET || "creator-workspace";
 }
@@ -88,6 +100,10 @@ function normalizeRoles(value) {
   return [];
 }
 
+function normalizeLoginId(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
 function getAdminEmails() {
   return String(process.env.WORKSPACE_ADMIN_EMAILS || "")
     .split(",")
@@ -95,31 +111,27 @@ function getAdminEmails() {
     .filter(Boolean);
 }
 
-function getUserFromContext(context) {
-  const user = context?.clientContext?.user;
+function isConfiguredAdminEmail(email) {
+  const normalizedEmail = normalizeLoginId(email);
 
-  if (!user) {
-    throw new HttpError(401, "Authentication required.");
+  return !!normalizedEmail && (
+    getAdminEmails().includes(normalizedEmail) ||
+    normalizedEmail === getMasterAdminEmail()
+  );
+}
+
+function getMasterAdminLoginId() {
+  return normalizeLoginId(process.env.WORKSPACE_MASTER_LOGIN_ID || "admin");
+}
+
+function getMasterAdminEmail() {
+  const explicitEmail = normalizeLoginId(process.env.WORKSPACE_MASTER_EMAIL);
+
+  if (explicitEmail) {
+    return explicitEmail;
   }
 
-  const roles = Array.from(
-    new Set([
-      ...normalizeRoles(user.app_metadata?.roles),
-      ...normalizeRoles(user.user_metadata?.roles)
-    ])
-  );
-
-  return {
-    ...user,
-    roles,
-    creatorId: user.app_metadata?.creator_id || user.user_metadata?.creator_id || null,
-    isCompanyAdmin: roles.includes("company_admin"),
-    displayName:
-      user.user_metadata?.full_name ||
-      user.user_metadata?.name ||
-      user.email ||
-      "Workspace user"
-  };
+  return getAdminEmails()[0] || null;
 }
 
 async function maybeSingle(query) {
@@ -133,7 +145,9 @@ async function maybeSingle(query) {
 }
 
 async function lookupCreatorByEmail(supabase, email) {
-  if (!email) {
+  const normalizedEmail = normalizeLoginId(email);
+
+  if (!normalizedEmail) {
     return null;
   }
 
@@ -141,8 +155,106 @@ async function lookupCreatorByEmail(supabase, email) {
     supabase
       .from("creators")
       .select("id, name, channel_name, login_email")
-      .ilike("login_email", email.toLowerCase())
+      .ilike("login_email", normalizedEmail)
+      .limit(1)
   );
+}
+
+async function lookupCreatorById(supabase, creatorId) {
+  const normalizedCreatorId = normalizeLoginId(creatorId);
+
+  if (!normalizedCreatorId) {
+    return null;
+  }
+
+  return maybeSingle(
+    supabase
+      .from("creators")
+      .select("id, name, channel_name, login_email")
+      .eq("id", normalizedCreatorId)
+      .limit(1)
+  );
+}
+
+async function lookupAdminByUserIdRecord(supabase, userId) {
+  if (!userId) {
+    return null;
+  }
+
+  return maybeSingle(
+    supabase
+      .from("admin_users")
+      .select("user_id, email")
+      .eq("user_id", userId)
+      .limit(1)
+  );
+}
+
+async function lookupAdminByEmailRecord(supabase, email) {
+  const normalizedEmail = normalizeLoginId(email);
+
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  return maybeSingle(
+    supabase
+      .from("admin_users")
+      .select("user_id, email")
+      .ilike("email", normalizedEmail)
+      .limit(1)
+  );
+}
+
+async function lookupAdminByLoginIdRecord(supabase, loginId) {
+  const normalizedLoginId = normalizeLoginId(loginId);
+  const masterLoginId = getMasterAdminLoginId();
+  const masterAdminEmail = getMasterAdminEmail();
+
+  if (!normalizedLoginId || !masterLoginId || normalizedLoginId !== masterLoginId) {
+    return null;
+  }
+
+  if (masterAdminEmail) {
+    const adminRecord = await lookupAdminByEmailRecord(supabase, masterAdminEmail);
+
+    if (adminRecord) {
+      return adminRecord;
+    }
+
+    return buildConfiguredAdmin(masterAdminEmail);
+  }
+
+  return null;
+}
+
+function buildConfiguredAdmin(email) {
+  return {
+    user_id: null,
+    email: normalizeLoginId(email),
+    display_name: "Admin"
+  };
+}
+
+async function lookupAdminByUser(supabase, userId, email, options = {}) {
+  const { allowEnvFallback = true } = options;
+  const byUserId = await lookupAdminByUserIdRecord(supabase, userId);
+
+  if (byUserId) {
+    return byUserId;
+  }
+
+  const byEmail = await lookupAdminByEmailRecord(supabase, email);
+
+  if (byEmail) {
+    return byEmail;
+  }
+
+  if (allowEnvFallback && isConfiguredAdminEmail(email)) {
+    return buildConfiguredAdmin(email);
+  }
+
+  return null;
 }
 
 async function fetchAdminCreatorList(supabase) {
@@ -158,20 +270,68 @@ async function fetchAdminCreatorList(supabase) {
   return data || [];
 }
 
-async function authorizeCreatorAccess({ context, supabase, creatorId }) {
+function getBearerToken(event) {
+  const authorization =
+    event?.headers?.authorization || event?.headers?.Authorization || "";
+  const match = /^Bearer\s+(.+)$/i.exec(String(authorization));
+
+  if (!match) {
+    throw new HttpError(401, "Authentication required.");
+  }
+
+  return match[1].trim();
+}
+
+async function getUserFromRequest(event, supabase) {
+  const accessToken = getBearerToken(event);
+  const {
+    data: { user },
+    error
+  } = await supabase.auth.getUser(accessToken);
+
+  if (error || !user) {
+    throw new HttpError(401, "Invalid or expired session.");
+  }
+
+  const email = normalizeLoginId(user.email);
+  const [creator, admin] = await Promise.all([
+    lookupCreatorByEmail(supabase, email),
+    lookupAdminByUser(supabase, user.id, email, {
+      allowEnvFallback: true
+    })
+  ]);
+  const isCompanyAdmin = !!admin;
+  const roles = isCompanyAdmin ? ["company_admin"] : [];
+  const displayName =
+    user.user_metadata?.full_name ||
+    user.user_metadata?.name ||
+    creator?.name ||
+    admin?.display_name ||
+    email ||
+    "Workspace user";
+
+  return {
+    ...user,
+    email,
+    roles,
+    creatorId: creator?.id || null,
+    isCompanyAdmin,
+    displayName
+  };
+}
+
+async function authorizeCreatorAccess({ event, supabase, creatorId }) {
   if (!creatorId) {
     throw new HttpError(400, "creatorId is required.");
   }
 
-  const user = getUserFromContext(context);
+  const user = await getUserFromRequest(event, supabase);
 
   if (user.isCompanyAdmin) {
     return { user, creatorId };
   }
 
-  const mappedCreator =
-    user.creatorId ? { id: user.creatorId } : await lookupCreatorByEmail(supabase, user.email);
-  const allowedCreatorId = mappedCreator?.id || null;
+  const allowedCreatorId = user.creatorId;
 
   if (!allowedCreatorId) {
     throw new HttpError(403, "No creator workspace is assigned to this account.");
@@ -182,11 +342,79 @@ async function authorizeCreatorAccess({ context, supabase, creatorId }) {
   }
 
   return {
-    user: {
-      ...user,
-      creatorId: allowedCreatorId
-    },
+    user,
     creatorId: allowedCreatorId
+  };
+}
+
+async function resolveLoginIdentifier({ supabase, loginId, mode = "workspace" }) {
+  const normalizedLoginId = normalizeLoginId(loginId);
+
+  if (!normalizedLoginId) {
+    throw new HttpError(400, "ID is required.");
+  }
+
+  let creator = null;
+  let admin = null;
+
+  if (normalizedLoginId.includes("@")) {
+    creator = await lookupCreatorByEmail(supabase, normalizedLoginId);
+    admin =
+      mode === "admin"
+        ? await lookupAdminByEmailRecord(supabase, normalizedLoginId)
+        : await lookupAdminByUser(supabase, null, normalizedLoginId, {
+            allowEnvFallback: true
+          });
+  } else {
+    creator = await lookupCreatorById(supabase, normalizedLoginId);
+    admin =
+      mode === "admin"
+        ? await lookupAdminByLoginIdRecord(supabase, normalizedLoginId)
+        : await lookupAdminByLoginIdRecord(supabase, normalizedLoginId);
+  }
+
+  if (mode === "admin") {
+    const masterAdminMatch =
+      normalizedLoginId === getMasterAdminLoginId() && getMasterAdminEmail();
+    const adminEmail = normalizeLoginId(admin?.email || masterAdminMatch);
+
+    if (!adminEmail) {
+      throw new HttpError(403, "This ID is not authorized for the admin console.");
+    }
+
+    return {
+      email: adminEmail,
+      role: "admin",
+      creatorId: null,
+      redirectTo: "/admin/dashboard"
+    };
+  }
+
+  if (admin?.email) {
+    return {
+      email: normalizeLoginId(admin.email),
+      role: "admin",
+      creatorId: null,
+      redirectTo: "/workspace"
+    };
+  }
+
+  if (!creator) {
+    throw new HttpError(404, "This ID is not assigned to any creator workspace.");
+  }
+
+  if (!creator.login_email) {
+    throw new HttpError(
+      500,
+      `The creator '${creator.id}' is missing a login_email value.`
+    );
+  }
+
+  return {
+    email: normalizeLoginId(creator.login_email),
+    role: "creator",
+    creatorId: creator.id,
+    redirectTo: `/workspace/${encodeURIComponent(creator.id)}`
   };
 }
 
@@ -362,15 +590,13 @@ async function loadWorkspaceData(supabase, creatorId) {
 }
 
 async function buildIdentityMapping(supabase, identityUser) {
-  const email = String(identityUser?.email || "")
-    .trim()
-    .toLowerCase();
+  const email = normalizeLoginId(identityUser?.email);
   const creator = await lookupCreatorByEmail(supabase, email);
   const roles = Array.from(
     new Set(normalizeRoles(identityUser?.app_metadata?.roles))
   );
 
-  if (getAdminEmails().includes(email)) {
+  if (isConfiguredAdminEmail(email)) {
     roles.push("company_admin");
   }
 
@@ -388,7 +614,7 @@ async function buildIdentityMapping(supabase, identityUser) {
 
   return {
     creator,
-    isAdmin: getAdminEmails().includes(email),
+    isAdmin: isConfiguredAdminEmail(email),
     appMetadata,
     userMetadata: {
       ...(identityUser?.user_metadata || {}),
@@ -405,11 +631,14 @@ module.exports = {
   handleError,
   parseBody,
   createSupabaseAdmin,
+  createSupabaseAuthClient,
   getStorageBucket,
-  getUserFromContext,
+  getUserFromRequest,
   lookupCreatorByEmail,
+  lookupCreatorById,
   fetchAdminCreatorList,
   authorizeCreatorAccess,
+  resolveLoginIdentifier,
   buildStoragePath,
   storageRef,
   loadWorkspaceData,

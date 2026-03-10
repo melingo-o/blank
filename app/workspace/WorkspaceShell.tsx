@@ -21,10 +21,6 @@ export function WorkspaceShell() {
           };
         `}
       </Script>
-      <Script
-        src="https://identity.netlify.com/v1/netlify-identity-widget.js"
-        strategy="afterInteractive"
-      />
 
       <div id="workspace-app" className="min-h-screen">
         <section id="auth-gate" className="flex min-h-screen items-center justify-center px-4 py-10">
@@ -36,16 +32,48 @@ export function WorkspaceShell() {
               Private planning board for creators and the company team.
             </h1>
             <p className="mt-4 text-sm leading-7 text-slate-500" data-auth-note>
-              Sign in with your Netlify Identity account to enter your private workspace.
+              Sign in with the creator ID and password that the team assigned to you.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
+            <form className="mt-8 space-y-4" data-workspace-auth-form>
+              <div>
+                <label
+                  htmlFor="workspace-login-id"
+                  className="block text-sm font-medium text-slate-700"
+                >
+                  Creator ID
+                </label>
+                <input
+                  id="workspace-login-id"
+                  type="text"
+                  autoComplete="username"
+                  placeholder="chaehee"
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="workspace-password"
+                  className="block text-sm font-medium text-slate-700"
+                >
+                  Password
+                </label>
+                <input
+                  id="workspace-password"
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="Enter your password"
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white"
+                />
+              </div>
               <button
-                type="button"
-                data-open-identity
-                className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                type="submit"
+                data-workspace-auth-submit
+                className="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
               >
-                Log in with Netlify Identity
+                Enter workspace
               </button>
+            </form>
+            <div className="mt-4 flex flex-wrap gap-3">
               <Link
                 href="/"
                 className="inline-flex items-center justify-center rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"

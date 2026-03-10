@@ -3,14 +3,14 @@ const {
   handleError,
   createSupabaseAdmin,
   fetchAdminCreatorList,
-  getUserFromContext,
+  getUserFromRequest,
   lookupCreatorByEmail
 } = require("./utils/workspace");
 
-exports.handler = async function handler(event, context) {
+exports.handler = async function handler(event) {
   try {
     const supabase = createSupabaseAdmin();
-    const user = getUserFromContext(context);
+    const user = await getUserFromRequest(event, supabase);
     const requestedCreatorId = event.queryStringParameters?.creatorId || null;
     const creatorMatch =
       user.creatorId ? { id: user.creatorId } : await lookupCreatorByEmail(supabase, user.email);

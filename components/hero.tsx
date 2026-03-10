@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { site } from "@/lib/site"
+import { CreatorWorkspaceModal } from "@/components/creator-workspace-modal"
 
 export function Hero() {
   return (
@@ -68,12 +69,10 @@ export function Hero() {
                 Apply / Business
                 <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
               </Link>
-              <Link
-                href="#team"
-                className="inline-flex items-center justify-center rounded-full border border-white/40 px-8 py-4 text-sm tracking-wide text-white/90 boty-transition hover:bg-white/10"
-              >
-                Meet the team
-              </Link>
+              <CreatorWorkspaceModal
+                buttonLabel="Creator Workspace"
+                buttonClassName="inline-flex items-center justify-center rounded-full border border-white/40 px-8 py-4 text-sm tracking-wide text-white/90 boty-transition hover:bg-white/10"
+              />
             </div>
 
             <div className="mt-14" />

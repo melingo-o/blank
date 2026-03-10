@@ -1,8 +1,15 @@
 # Creator Workspace Setup
 
-## 1. Supabase
+## 1. Supabase tables
 
 Run `supabase/workspace-schema.sql` in the Supabase SQL editor.
+
+The existing `supabase/schema.sql` should already be applied for:
+
+- `admin_users`
+- `portfolio_items`
+- `team_members`
+- `submissions`
 
 Create a private storage bucket:
 
@@ -20,25 +27,33 @@ NEXT_PUBLIC_SUPABASE_URL=your-project-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 WORKSPACE_STORAGE_BUCKET=creator-workspace
-WORKSPACE_ADMIN_EMAILS=admin@example.com,founder@example.com
+WORKSPACE_ADMIN_EMAILS=admin@example.com
+WORKSPACE_MASTER_LOGIN_ID=admin
+WORKSPACE_MASTER_EMAIL=admin@example.com
 ```
 
-## 3. Netlify Identity
+Notes:
 
-Enable Netlify Identity for the site.
+- `WORKSPACE_MASTER_LOGIN_ID` is the admin ID typed on `/admin`.
+- `WORKSPACE_MASTER_EMAIL` is the real Supabase Auth email for that admin account.
+- If `WORKSPACE_MASTER_EMAIL` is omitted, the first email in `WORKSPACE_ADMIN_EMAILS` is used.
 
-The included Identity Functions do two things:
+## 3. Auth model
 
-- `identity-validate`: blocks signups unless the email is an approved admin email or matches a creator `login_email`
-- `identity-login`: stamps `app_metadata.creator_id` for creators and `app_metadata.roles=["company_admin"]` for admin emails
+This workspace now uses Supabase Auth, not Netlify Identity.
+
+- Creator login input: `creators.id` + that creator's Supabase Auth password
+- Creator route: `/workspace/{creator_id}`
+- Creator email mapping: `creators.login_email`
+- Admin login input: `WORKSPACE_MASTER_LOGIN_ID` + the admin user's Supabase Auth password
+- Admin session rights: creator workspace access plus the existing `/admin` console
 
 ## 4. Creator records
 
-Each creator row should use a route-safe `id` because the workspace URL is:
+Each creator row should use a route-safe `id` because that same value is:
 
-```bash
-/workspace/{creator_id}
-```
+- the workspace URL segment
+- the creator login ID shown in the popup
 
 Example:
 
@@ -62,19 +77,43 @@ insert into creators (
 );
 ```
 
-## 5. Access model
+You must also create a matching Supabase Auth user for `chaehee@example.com` and set that user's password.
 
-- Company admins: any email listed in `WORKSPACE_ADMIN_EMAILS`
-- Creators: only the creator whose `login_email` matches the Netlify Identity email
-- All database writes/reads are routed through Netlify Functions, which enforce the `creator_id` check before touching Supabase
+## 5. Admin account
 
-## 6. Routes and files
+The master admin must exist in both places:
 
-- Standalone drop-in file: `/workspace/workspace.html`
-- App route wrapper: `/workspace` and `/workspace/[creatorId]`
+1. Supabase Auth user
+2. `admin_users` table
+
+Example bootstrap:
+
+```sql
+insert into admin_users (user_id, email)
+values ('<auth-user-uuid>', 'admin@example.com');
+```
+
+Then set:
+
+```bash
+WORKSPACE_MASTER_LOGIN_ID=admin
+WORKSPACE_MASTER_EMAIL=admin@example.com
+```
+
+## 6. Access model
+
+- Creator users can only open their own workspace.
+- Admin users can open every creator workspace and switch creators from the sidebar.
+- All workspace reads/writes still go through Netlify Functions, which enforce the `creator_id` permission check before touching Supabase.
+
+## 7. Routes and files
+
+- Public CTA: `Creator Workspace` button in the hero section
+- Admin login: `/admin`
+- Workspace routes: `/workspace` and `/workspace/[creatorId]`
 - Static UI modules: `/public/workspace/*` and `/public/components/*`
 
-## 7. Attachment flow
+## 8. Attachment flow
 
 1. Browser requests a signed upload token from `/.netlify/functions/workspace-upload`
 2. Browser uploads the file directly to Supabase Storage with the signed token

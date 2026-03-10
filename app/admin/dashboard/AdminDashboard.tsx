@@ -431,6 +431,12 @@ export default function AdminDashboard({
             >
               뒤로가기
             </Link>
+            <Link
+              href="/workspace"
+              className="rounded-full border border-border/60 px-5 py-2 text-xs uppercase tracking-[0.25em] text-foreground boty-transition hover:bg-muted"
+            >
+              Creator Workspace
+            </Link>
             <button
               type="button"
               onClick={handleSignOut}

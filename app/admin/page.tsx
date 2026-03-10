@@ -11,10 +11,10 @@ export default async function AdminPage() {
     return (
       <div className="mx-auto flex min-h-screen w-full max-w-3xl items-center justify-center px-6">
         <div className="rounded-3xl border border-border/60 bg-card p-10 text-center text-foreground boty-shadow">
-          <h1 className="text-2xl font-semibold">Supabase 설정 필요</h1>
+          <h1 className="text-2xl font-semibold">Supabase setup required</h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            NEXT_PUBLIC_SUPABASE_URL과 NEXT_PUBLIC_SUPABASE_ANON_KEY를
-            설정해주세요.
+            Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+            before using the admin console.
           </p>
         </div>
       </div>
