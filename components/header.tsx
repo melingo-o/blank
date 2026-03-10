@@ -16,7 +16,7 @@ export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 px-4 pt-4">
+    <header data-site-header className="fixed top-0 left-0 right-0 z-50 px-4 pt-4">
       <nav className="max-w-7xl mx-auto px-6 lg:px-8 backdrop-blur-md rounded-2xl py-3 animate-scale-fade-in bg-[rgba(246,247,251,0.7)] border border-[rgba(15,17,23,0.08)] shadow-[0_18px_50px_-30px_rgba(15,17,23,0.5)]">
         <div className="flex items-center justify-between">
           <button

@@ -35,12 +35,23 @@ export function CreatorWorkspaceModal({
     }
 
     document.addEventListener("keydown", handleKeyDown)
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = "hidden"
+    const scrollbarCompensation = Math.max(
+      window.innerWidth - document.documentElement.clientWidth,
+      0
+    )
+
+    document.documentElement.style.setProperty(
+      "--creator-workspace-scrollbar-compensation",
+      `${scrollbarCompensation}px`
+    )
+    document.body.classList.add("creator-workspace-modal-open")
 
     return () => {
       document.removeEventListener("keydown", handleKeyDown)
-      document.body.style.overflow = previousOverflow
+      document.body.classList.remove("creator-workspace-modal-open")
+      document.documentElement.style.removeProperty(
+        "--creator-workspace-scrollbar-compensation"
+      )
     }
   }, [isOpen])
 
@@ -114,14 +125,14 @@ export function CreatorWorkspaceModal({
 
       {isOpen && (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 px-4 py-8 backdrop-blur-sm"
+          className="creator-workspace-modal fixed inset-0 z-[70] flex items-center justify-center px-4 py-8"
           onClick={(event) => {
             if (event.target === event.currentTarget) {
               setIsOpen(false)
             }
           }}
         >
-          <div className="w-full max-w-md rounded-[32px] border border-white/20 bg-white p-8 text-slate-900 shadow-[0_32px_80px_rgba(15,17,23,0.35)]">
+          <div className="creator-workspace-modal__panel w-full max-w-md rounded-[32px] border border-white/20 bg-white p-8 text-slate-900 shadow-[0_32px_80px_rgba(15,17,23,0.28)]">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
