@@ -1,5 +1,6 @@
 const TAB_LABELS = {
   overview: "Overview",
+  strategy: "Channel Plan",
   meetings: "Meetings",
   pipeline: "Content Pipeline",
   feedback: "Feedback",
@@ -110,7 +111,7 @@ export function renderSidebar({
                   rel="noreferrer"
                 >
                   Visit channel
-                  <span aria-hidden="true">↗</span>
+                  <span aria-hidden="true">&#8599;</span>
                 </a>
               `
               : ""
@@ -147,24 +148,6 @@ export function renderSidebar({
             : ""
         }
 
-        <div class="rounded-[22px] border border-slate-200 bg-white p-4">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Growth stats</p>
-          <div class="mt-4 grid gap-3">
-            <div class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
-              <p class="text-xs text-slate-500">Videos published</p>
-              <p class="mt-1 text-lg font-semibold text-slate-900">${escapeHtml(formatMetric(stats?.videosPublished))}</p>
-            </div>
-            <div class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
-              <p class="text-xs text-slate-500">Total views</p>
-              <p class="mt-1 text-lg font-semibold text-slate-900">${escapeHtml(formatMetric(stats?.totalViews))}</p>
-            </div>
-            <div class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
-              <p class="text-xs text-slate-500">Subscribers gained</p>
-              <p class="mt-1 text-lg font-semibold text-slate-900">${escapeHtml(formatMetric(stats?.subscribersGained))}</p>
-            </div>
-          </div>
-        </div>
-
         <div class="rounded-[22px] border border-slate-200 bg-white p-3">
           <p class="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Navigation</p>
           <nav class="space-y-1" aria-label="Workspace navigation">
@@ -181,12 +164,30 @@ export function renderSidebar({
                     }"
                   >
                     <span>${escapeHtml(label)}</span>
-                    <span class="${activeTab === value ? "text-white/70" : "text-slate-400"}">›</span>
+                    <span class="${activeTab === value ? "text-white/70" : "text-slate-400"}">&#8594;</span>
                   </button>
                 `
               )
               .join("")}
           </nav>
+        </div>
+
+        <div class="rounded-[22px] border border-slate-200 bg-white p-4">
+          <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Growth stats</p>
+          <div class="mt-4 grid gap-3">
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+              <p class="text-xs text-slate-500">Videos published</p>
+              <p class="mt-1 text-lg font-semibold text-slate-900">${escapeHtml(formatMetric(stats?.videosPublished))}</p>
+            </div>
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+              <p class="text-xs text-slate-500">Total views</p>
+              <p class="mt-1 text-lg font-semibold text-slate-900">${escapeHtml(formatMetric(stats?.totalViews))}</p>
+            </div>
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+              <p class="text-xs text-slate-500">Subscribers gained</p>
+              <p class="mt-1 text-lg font-semibold text-slate-900">${escapeHtml(formatMetric(stats?.subscribersGained))}</p>
+            </div>
+          </div>
         </div>
       </div>
 

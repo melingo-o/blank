@@ -29,7 +29,7 @@ export function WorkspaceShell() {
         >
           <div className="workspace-surface w-full max-w-xl rounded-[32px] border border-slate-200 bg-white p-8 shadow-[0_24px_44px_rgba(15,23,42,0.08)]">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-              Creator Workspace
+              크리에이터 워크스페이스
             </p>
             <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-950">
               워크스페이스를 준비하고 있습니다.
@@ -42,11 +42,11 @@ export function WorkspaceShell() {
 
         <section
           id="auth-gate"
-          className="hidden min-h-screen items-center justify-center px-4 py-10"
+          className="hidden flex min-h-screen items-center justify-center px-4 py-10"
         >
           <div className="workspace-surface w-full max-w-xl rounded-[32px] border border-slate-200 bg-white p-8 shadow-[0_24px_44px_rgba(15,23,42,0.08)]">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-              Creator Workspace
+              크리에이터 워크스페이스
             </p>
             <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-950">
               워크스페이스 로그인
@@ -98,7 +98,7 @@ export function WorkspaceShell() {
                 href="/"
                 className="inline-flex items-center justify-center rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
               >
-                Back to site
+                사이트로 돌아가기
               </Link>
             </div>
           </div>
@@ -121,6 +121,12 @@ export function WorkspaceShell() {
               <div id="workspace-notice" />
 
               <section id="panel-overview" data-panel="overview" className="workspace-panel" />
+              <section
+                id="panel-strategy"
+                data-panel="strategy"
+                className="workspace-panel"
+                hidden
+              />
               <section
                 id="panel-meetings"
                 data-panel="meetings"

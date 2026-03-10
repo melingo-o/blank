@@ -1,3 +1,18 @@
+const STATUS_LABELS = {
+  idea: "아이디어",
+  script: "대본",
+  filming: "촬영",
+  editing: "편집",
+  published: "발행"
+};
+
+const ATTACHMENT_KIND_LABELS = {
+  thumbnail: "썸네일 이미지",
+  script: "대본 파일",
+  pdf_note: "PDF 노트",
+  reference: "참고 자료"
+};
+
 const STATUS_OPTIONS = ["idea", "script", "filming", "editing", "published"];
 
 function escapeHtml(value = "") {
@@ -36,7 +51,7 @@ function renderComment(comment) {
   return `
     <article class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
       <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-        <span class="font-semibold text-slate-700">${escapeHtml(comment.author || "Workspace")}</span>
+        <span class="font-semibold text-slate-700">${escapeHtml(comment.author || "워크스페이스")}</span>
         ${comment.author_role ? `<span class="rounded-full bg-white px-2 py-1">${escapeHtml(comment.author_role)}</span>` : ""}
         <span>${escapeHtml(formatDate(comment.created_at, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }))}</span>
       </div>
@@ -67,36 +82,36 @@ export function renderFeedbackPanel({
     <div class="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
       <section class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_34px_rgba(15,23,42,0.05)]">
         <div>
-          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Feedback composer</p>
-          <h2 class="mt-2 text-xl font-semibold text-slate-900">Leave notes for the next iteration</h2>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">피드백 작성</p>
+          <h2 class="mt-2 text-xl font-semibold text-slate-900">다음 수정 방향을 바로 남기세요</h2>
         </div>
 
         <form class="mt-6 space-y-4" data-feedback-form>
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="feedback-content-id">Content item</label>
+            <label class="block text-sm font-medium text-slate-700" for="feedback-content-id">콘텐츠 카드</label>
             <select
               id="feedback-content-id"
               name="contentId"
               class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
               required
             >
-              <option value="">Select a content card</option>
+              <option value="">카드를 선택해 주세요</option>
               ${contents
                 .map(
                   (content) => `
-                    <option value="${escapeHtml(content.id)}">${escapeHtml(content.title)} · ${escapeHtml(content.status)}</option>
+                    <option value="${escapeHtml(content.id)}">${escapeHtml(content.title)} · ${escapeHtml(STATUS_LABELS[content.status] || content.status)}</option>
                   `
                 )
                 .join("")}
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="feedback-comment">Comment</label>
+            <label class="block text-sm font-medium text-slate-700" for="feedback-comment">피드백</label>
             <textarea
               id="feedback-comment"
               name="comment"
               rows="5"
-              placeholder="Add specific notes about script, hooks, delivery, thumbnail direction, or next steps."
+              placeholder="대본, 후킹, 전달력, 썸네일 방향, 다음 액션을 구체적으로 적어 주세요."
               class="mt-2 w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
               required
             ></textarea>
@@ -105,7 +120,7 @@ export function renderFeedbackPanel({
             type="submit"
             class="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
-            Save feedback
+            피드백 저장
           </button>
         </form>
       </section>
@@ -113,8 +128,8 @@ export function renderFeedbackPanel({
       <section class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_34px_rgba(15,23,42,0.05)]">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Discussion log</p>
-            <h2 class="mt-2 text-xl font-semibold text-slate-900">Threaded by content card</h2>
+            <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">대화 기록</p>
+            <h2 class="mt-2 text-xl font-semibold text-slate-900">콘텐츠 카드별 피드백 로그</h2>
           </div>
         </div>
 
@@ -127,10 +142,10 @@ export function renderFeedbackPanel({
                       <article class="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4">
                         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div>
-                            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">${escapeHtml(content.status)}</p>
+                            <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">${escapeHtml(STATUS_LABELS[content.status] || content.status)}</p>
                             <h3 class="mt-2 text-base font-semibold text-slate-900">${escapeHtml(content.title)}</h3>
                             <p class="mt-2 text-sm leading-6 text-slate-500">
-                              ${feedback.length > 0 ? `${feedback.length} comment${feedback.length === 1 ? "" : "s"}` : "No comments yet"}
+                              ${feedback.length > 0 ? `댓글 ${feedback.length}개` : "아직 댓글이 없습니다"}
                             </p>
                           </div>
                           <button
@@ -138,7 +153,7 @@ export function renderFeedbackPanel({
                             data-open-content="${escapeHtml(content.id)}"
                             class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-100"
                           >
-                            Open card
+                            카드 열기
                           </button>
                         </div>
                         <div class="mt-4 space-y-3">
@@ -147,7 +162,7 @@ export function renderFeedbackPanel({
                               ? feedback.slice(0, 3).map(renderComment).join("")
                               : `
                                   <div class="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-400">
-                                    Use the composer to start the conversation.
+                                    왼쪽 입력창에서 첫 피드백을 남겨 주세요.
                                   </div>
                                 `
                           }
@@ -158,7 +173,7 @@ export function renderFeedbackPanel({
                   .join("")
               : `
                   <div class="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-400">
-                    Add content cards to start leaving feedback.
+                    먼저 콘텐츠 카드를 추가한 뒤 피드백을 남겨 주세요.
                   </div>
                 `
           }
@@ -198,10 +213,10 @@ export function renderContentDetail(content, feedback = [], attachments = []) {
       <section class="space-y-5">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Content detail</p>
-            <h2 class="mt-2 text-2xl font-semibold text-slate-950">${escapeHtml(content.title || "Untitled content")}</h2>
+            <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">콘텐츠 상세</p>
+            <h2 class="mt-2 text-2xl font-semibold text-slate-950">${escapeHtml(content.title || "제목 없는 콘텐츠")}</h2>
             <p class="mt-2 text-sm text-slate-500">
-              Updated ${escapeHtml(formatDate(content.updated_at || content.created_at))}
+              최근 수정 ${escapeHtml(formatDate(content.updated_at || content.created_at))}
             </p>
           </div>
           <button
@@ -209,14 +224,14 @@ export function renderContentDetail(content, feedback = [], attachments = []) {
             data-close-modal
             class="rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-500 transition hover:border-slate-300 hover:bg-slate-50"
           >
-            Close
+            닫기
           </button>
         </div>
 
         <form class="space-y-4" data-content-edit-form>
           <input type="hidden" name="contentId" value="${escapeHtml(content.id)}" />
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="detail-title">Title</label>
+            <label class="block text-sm font-medium text-slate-700" for="detail-title">제목</label>
             <input
               id="detail-title"
               name="title"
@@ -227,17 +242,17 @@ export function renderContentDetail(content, feedback = [], attachments = []) {
           </div>
           <div class="grid gap-4 md:grid-cols-2">
             <div>
-              <label class="block text-sm font-medium text-slate-700" for="detail-status">Stage</label>
+              <label class="block text-sm font-medium text-slate-700" for="detail-status">단계</label>
               <select
                 id="detail-status"
                 name="status"
                 class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
               >
-                ${STATUS_OPTIONS.map((option) => `<option value="${escapeHtml(option)}" ${option === content.status ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
+                ${STATUS_OPTIONS.map((option) => `<option value="${escapeHtml(option)}" ${option === content.status ? "selected" : ""}>${escapeHtml(STATUS_LABELS[option] || option)}</option>`).join("")}
               </select>
             </div>
             <div>
-              <label class="block text-sm font-medium text-slate-700" for="detail-publish-date">Publish date</label>
+              <label class="block text-sm font-medium text-slate-700" for="detail-publish-date">발행일</label>
               <input
                 id="detail-publish-date"
                 name="publishDate"
@@ -248,30 +263,30 @@ export function renderContentDetail(content, feedback = [], attachments = []) {
             </div>
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="detail-concept">Concept</label>
+            <label class="block text-sm font-medium text-slate-700" for="detail-concept">콘셉트</label>
             <textarea
               id="detail-concept"
               name="concept"
               rows="4"
               class="mt-2 w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
-              placeholder="What is the idea behind this content?"
+              placeholder="이 콘텐츠의 핵심 기획 의도를 정리해 주세요."
             >${escapeHtml(content.concept || "")}</textarea>
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="detail-script">Script draft</label>
+            <label class="block text-sm font-medium text-slate-700" for="detail-script">대본 초안</label>
             <textarea
               id="detail-script"
               name="script"
               rows="10"
               class="mt-2 w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
-              placeholder="Paste the working script, beat sheet, or bullet plan."
+              placeholder="작업 중인 대본, 비트시트, 구성안을 붙여 넣어 주세요."
             >${escapeHtml(content.script || "")}</textarea>
           </div>
           <button
             type="submit"
             class="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
-            Save card
+            카드 저장
           </button>
         </form>
       </section>
@@ -280,20 +295,20 @@ export function renderContentDetail(content, feedback = [], attachments = []) {
         <div class="rounded-[26px] border border-slate-200 bg-slate-50/80 p-4">
           <div class="flex items-center justify-between gap-3">
             <div>
-              <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Thumbnail</p>
-              <p class="mt-1 text-sm text-slate-500">Upload images, scripts, or PDF notes to keep everything on one card.</p>
+              <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">첨부 파일</p>
+              <p class="mt-1 text-sm text-slate-500">썸네일, 대본 파일, PDF 노트를 한 카드 안에서 함께 관리할 수 있습니다.</p>
             </div>
           </div>
           ${
             thumbnail
               ? `
                 <div class="mt-4 overflow-hidden rounded-[22px] border border-slate-200 bg-white">
-                  <img src="${escapeHtml(thumbnail)}" alt="${escapeHtml(content.title)} thumbnail" class="h-52 w-full object-cover" />
+                  <img src="${escapeHtml(thumbnail)}" alt="${escapeHtml(content.title)} 썸네일" class="h-52 w-full object-cover" />
                 </div>
               `
               : `
                 <div class="mt-4 flex h-52 items-center justify-center rounded-[22px] border border-dashed border-slate-200 bg-white text-sm text-slate-400">
-                  No thumbnail uploaded yet.
+                  아직 업로드된 썸네일이 없습니다.
                 </div>
               `
           }
@@ -302,27 +317,27 @@ export function renderContentDetail(content, feedback = [], attachments = []) {
             <input type="hidden" name="contentId" value="${escapeHtml(content.id)}" />
             <input
               name="title"
-              placeholder="Attachment title"
+              placeholder="첨부 파일 제목"
               class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
             />
             <select
               name="kind"
               class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
             >
-              <option value="thumbnail">Thumbnail image</option>
-              <option value="script">Script file</option>
-              <option value="pdf_note">PDF note</option>
-              <option value="reference">Reference</option>
+              <option value="thumbnail">썸네일 이미지</option>
+              <option value="script">대본 파일</option>
+              <option value="pdf_note">PDF 노트</option>
+              <option value="reference">참고 자료</option>
             </select>
             <label class="inline-flex cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-100">
               <input type="file" name="file" class="hidden" required />
-              Choose file
+              파일 선택
             </label>
             <button
               type="submit"
               class="md:col-span-3 inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
             >
-              Upload attachment
+              첨부 업로드
             </button>
           </form>
 
@@ -341,17 +356,17 @@ export function renderContentDetail(content, feedback = [], attachments = []) {
                           <div class="min-w-0">
                             <p class="truncate text-sm font-medium text-slate-700">${escapeHtml(attachment.title || attachment.file_name)}</p>
                             <p class="mt-1 truncate text-xs text-slate-500">
-                              ${escapeHtml(attachment.kind)} · ${escapeHtml(formatDate(attachment.created_at))}
+                              ${escapeHtml(ATTACHMENT_KIND_LABELS[attachment.kind] || attachment.kind)} · ${escapeHtml(formatDate(attachment.created_at))}
                             </p>
                           </div>
-                          <span class="text-slate-400">↗</span>
+                          <span class="text-slate-400">&#8599;</span>
                         </a>
                       `
                     )
                     .join("")
                 : `
                     <div class="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-400">
-                      No attachments on this card yet.
+                      이 카드에는 아직 첨부 파일이 없습니다.
                     </div>
                   `
             }
@@ -359,14 +374,14 @@ export function renderContentDetail(content, feedback = [], attachments = []) {
         </div>
 
         <div class="rounded-[26px] border border-slate-200 bg-slate-50/80 p-4">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Comments</p>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">댓글</p>
           <div class="mt-4 space-y-3">
             ${
               feedback.length > 0
                 ? feedback.map(renderComment).join("")
                 : `
                     <div class="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-400">
-                      No feedback yet. Add the first note below.
+                      아직 피드백이 없습니다. 아래에서 첫 댓글을 남겨 주세요.
                     </div>
                   `
             }
@@ -377,14 +392,14 @@ export function renderContentDetail(content, feedback = [], attachments = []) {
               name="comment"
               rows="4"
               class="w-full rounded-[24px] border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400"
-              placeholder="Leave a script note, performance cue, thumbnail note, or decision log."
+              placeholder="대본 메모, 퍼포먼스 코멘트, 썸네일 수정 방향, 의사결정 내용을 남겨 주세요."
               required
             ></textarea>
             <button
               type="submit"
               class="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
             >
-              Add comment
+              댓글 추가
             </button>
           </form>
         </div>

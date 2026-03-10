@@ -1,29 +1,39 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+import { renderChannelPlanPanel } from "/components/channel-plan.js";
 import { renderSidebar } from "/components/sidebar.js";
 import { renderKanban } from "/components/kanban.js";
 import { renderFeedbackPanel, renderContentDetail } from "/components/comments.js";
 import { renderTimeline } from "/components/timeline.js";
 
 const TABS = [
-  { id: "overview", label: "Overview" },
-  { id: "meetings", label: "Meetings" },
-  { id: "pipeline", label: "Content Pipeline" },
-  { id: "feedback", label: "Feedback" },
-  { id: "timeline", label: "Timeline" }
+  { id: "overview", label: "개요" },
+  { id: "strategy", label: "채널 기획" },
+  { id: "meetings", label: "미팅" },
+  { id: "pipeline", label: "콘텐츠 파이프라인" },
+  { id: "feedback", label: "피드백" },
+  { id: "timeline", label: "타임라인" }
 ];
 
+const STATUS_LABELS = {
+  idea: "아이디어",
+  script: "대본",
+  filming: "촬영",
+  editing: "편집",
+  published: "발행"
+};
+
 const MEETING_TYPE_LABELS = {
-  kickoff: "Kickoff",
-  concept: "Concept",
-  content: "Content",
-  script_feedback: "Script feedback"
+  kickoff: "킥오프",
+  concept: "콘셉트",
+  content: "콘텐츠",
+  script_feedback: "대본 피드백"
 };
 
 const ATTACHMENT_LABELS = {
-  thumbnail: "Thumbnail uploaded",
-  script: "Script file added",
-  pdf_note: "PDF note added",
-  reference: "Reference added"
+  thumbnail: "썸네일 업로드",
+  script: "대본 파일 추가",
+  pdf_note: "PDF 노트 추가",
+  reference: "참고 자료 추가"
 };
 
 const WORKSPACE_SESSION_HANDOFF_KEY = "workspaceSessionHandoff";
@@ -48,8 +58,8 @@ function startWorkspaceApp() {
   bindGlobalUI();
   boot().catch((error) => {
     console.error(error);
-    showAuthGate("Unable to initialize the workspace.");
-    showToast(error.message || "Unable to initialize the workspace.", "error");
+    showAuthGate("워크스페이스를 초기화하지 못했습니다.");
+    showToast(error.message || "워크스페이스를 초기화하지 못했습니다.", "error");
   });
 }
 
@@ -68,6 +78,7 @@ function collectRefs() {
   refs.tabs = document.getElementById("workspace-tabs");
   refs.notice = document.getElementById("workspace-notice");
   refs.overview = document.getElementById("panel-overview");
+  refs.strategy = document.getElementById("panel-strategy");
   refs.meetings = document.getElementById("panel-meetings");
   refs.pipeline = document.getElementById("panel-pipeline");
   refs.feedback = document.getElementById("panel-feedback");
@@ -116,7 +127,7 @@ async function loadConfig() {
   const payload = await response.json();
 
   if (!response.ok) {
-    throw new Error(payload.error || "Workspace configuration is missing.");
+    throw new Error(payload.error || "워크스페이스 설정 정보를 불러오지 못했습니다.");
   }
 
   state.config = payload;
@@ -209,7 +220,7 @@ async function handleWorkspaceLogin() {
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(payload.error || "Unable to sign in.");
+      throw new Error(payload.error || "로그인에 실패했습니다.");
     }
 
     const { error } = await state.supabase.auth.setSession({
@@ -232,7 +243,7 @@ async function handleWorkspaceLogin() {
     showToast("워크스페이스에 접속했습니다.", "success");
   } catch (error) {
     console.error(error);
-    showToast(error.message || "Unable to sign in.", "error");
+    showToast(error.message || "로그인에 실패했습니다.", "error");
   } finally {
     if (refs.authSubmit instanceof HTMLButtonElement) {
       refs.authSubmit.disabled = false;
@@ -303,6 +314,10 @@ function renderWorkspace() {
 
   bindSidebarEvents();
   renderOverview();
+  renderChannelPlanPanel({
+    root: refs.strategy,
+    creator: state.workspace.creator
+  });
   renderMeetings();
   renderKanban({
     root: refs.pipeline,
@@ -338,12 +353,12 @@ function renderHeader() {
     <div class="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Private creator portal</p>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">크리에이터 전용 워크스페이스</p>
           <h1 class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-            ${escapeHtml(creator.name || "Creator")} <span class="text-slate-400">/ ${escapeHtml(creator.channel_name || creator.id || "")}</span>
+            ${escapeHtml(creator.name || "크리에이터")} <span class="text-slate-400">/ ${escapeHtml(creator.channel_name || creator.id || "")}</span>
           </h1>
           <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-500">
-            Shared workspace for meeting history, script drafts, production status, and growth milestones.
+            미팅 기록, 대본 초안, 제작 단계, 성장 마일스톤을 한곳에서 함께 관리합니다.
           </p>
         </div>
         <div class="grid gap-2 sm:grid-cols-3">
@@ -352,36 +367,36 @@ function renderHeader() {
             data-header-action="meeting"
             class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
           >
-            New Meeting
+            미팅 추가
           </button>
           <button
             type="button"
             data-header-action="content"
             class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
           >
-            New Content
+            콘텐츠 추가
           </button>
           <button
             type="button"
             data-header-action="milestone"
             class="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
-            Add Milestone
+            마일스톤 추가
           </button>
         </div>
       </div>
 
       <div class="grid gap-4 sm:grid-cols-3">
         <div class="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-[0_12px_24px_rgba(15,23,42,0.05)]">
-          <p class="text-xs text-slate-500">Videos published</p>
+          <p class="text-xs text-slate-500">발행한 영상</p>
           <p class="mt-2 text-2xl font-semibold text-slate-900">${formatNumber(stats.videosPublished)}</p>
         </div>
         <div class="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-[0_12px_24px_rgba(15,23,42,0.05)]">
-          <p class="text-xs text-slate-500">Total views</p>
+          <p class="text-xs text-slate-500">총 조회수</p>
           <p class="mt-2 text-2xl font-semibold text-slate-900">${formatNumber(stats.totalViews)}</p>
         </div>
         <div class="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-[0_12px_24px_rgba(15,23,42,0.05)]">
-          <p class="text-xs text-slate-500">Subscribers gained</p>
+          <p class="text-xs text-slate-500">증가한 구독자</p>
           <p class="mt-2 text-2xl font-semibold text-slate-900">${formatNumber(stats.subscribersGained)}</p>
         </div>
       </div>
@@ -432,8 +447,8 @@ function bindSidebarEvents() {
   refs.sidebar.querySelector("[data-sign-out]")?.addEventListener("click", async () => {
     await state.supabase.auth.signOut();
     clearWorkspace();
-    showAuthGate("You have signed out.");
-    showToast("Signed out.", "success");
+    showAuthGate("로그아웃되었습니다.");
+    showToast("로그아웃되었습니다.", "success");
   });
 
   refs.sidebar
@@ -461,19 +476,19 @@ function renderOverview() {
   refs.overview.innerHTML = `
     <div class="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
       <section class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_34px_rgba(15,23,42,0.05)]">
-        <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Overview</p>
-        <h2 class="mt-2 text-2xl font-semibold text-slate-950">${escapeHtml(creator.name || "Creator workspace")}</h2>
+        <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">개요</p>
+        <h2 class="mt-2 text-2xl font-semibold text-slate-950">${escapeHtml(creator.name || "크리에이터 워크스페이스")}</h2>
         <div class="mt-6 grid gap-4 md:grid-cols-3">
           <div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
-            <p class="text-xs text-slate-500">Channel concept</p>
-            <p class="mt-3 text-sm leading-6 text-slate-700">${escapeHtml(creator.channel_concept || "Document the channel concept to keep decisions aligned.")}</p>
+            <p class="text-xs text-slate-500">채널 콘셉트</p>
+            <p class="mt-3 text-sm leading-6 text-slate-700">${escapeHtml(creator.channel_concept || "채널 콘셉트를 기록하면 모든 의사결정을 같은 방향으로 맞출 수 있습니다.")}</p>
           </div>
           <div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
-            <p class="text-xs text-slate-500">Join date</p>
+            <p class="text-xs text-slate-500">합류일</p>
             <p class="mt-3 text-sm font-semibold text-slate-900">${escapeHtml(formatDate(creator.join_date))}</p>
           </div>
           <div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
-            <p class="text-xs text-slate-500">Latest sync</p>
+            <p class="text-xs text-slate-500">최근 동기화</p>
             <p class="mt-3 text-sm font-semibold text-slate-900">${escapeHtml(formatDate(meetings[0]?.date || contents[0]?.updated_at || creator.updated_at || creator.created_at))}</p>
           </div>
         </div>
@@ -481,7 +496,7 @@ function renderOverview() {
         <div class="mt-6">
           <div class="flex items-center justify-between gap-3">
             <div>
-              <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Recent activity</p>
+              <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">최근 활동</p>
             </div>
           </div>
           <div class="mt-4 space-y-3">
@@ -504,7 +519,7 @@ function renderOverview() {
                     .join("")
                 : `
                     <div class="rounded-[22px] border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-400">
-                      Add meetings, comments, and milestones to start building the activity history.
+                      미팅, 댓글, 마일스톤이 쌓이면 활동 기록이 이곳에 정리됩니다.
                     </div>
                   `
             }
@@ -514,13 +529,13 @@ function renderOverview() {
 
       <section class="space-y-6">
         <div class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_34px_rgba(15,23,42,0.05)]">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Pipeline snapshot</p>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">파이프라인 현황</p>
           <div class="mt-5 grid gap-3">
             ${pipelineSummary
               .map(
                 (item) => `
                   <div class="flex items-center justify-between rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-3">
-                    <span class="text-sm font-medium text-slate-600">${escapeHtml(item.status)}</span>
+                    <span class="text-sm font-medium text-slate-600">${escapeHtml(STATUS_LABELS[item.status] || item.status)}</span>
                     <span class="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-500">${item.total}</span>
                   </div>
                 `
@@ -530,7 +545,7 @@ function renderOverview() {
         </div>
 
         <div class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_34px_rgba(15,23,42,0.05)]">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Attachments</p>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">최근 첨부 파일</p>
           <div class="mt-5 space-y-3">
             ${
               attachments.length > 0
@@ -546,16 +561,16 @@ function renderOverview() {
                         >
                           <div class="min-w-0">
                             <p class="truncate text-sm font-medium text-slate-700">${escapeHtml(attachment.title || attachment.file_name)}</p>
-                            <p class="mt-1 truncate text-xs text-slate-500">${escapeHtml(attachment.kind)} · ${escapeHtml(formatDate(attachment.created_at))}</p>
+                            <p class="mt-1 truncate text-xs text-slate-500">${escapeHtml(ATTACHMENT_LABELS[attachment.kind] || attachment.kind)} · ${escapeHtml(formatDate(attachment.created_at))}</p>
                           </div>
-                          <span class="text-slate-400">↗</span>
+                          <span class="text-slate-400">&#8599;</span>
                         </a>
                       `
                     )
                     .join("")
                 : `
                     <div class="rounded-[22px] border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-400">
-                      Upload thumbnails, scripts, and PDF notes inside any content card.
+                      각 콘텐츠 카드에서 썸네일, 대본, PDF 노트를 업로드할 수 있습니다.
                     </div>
                   `
             }
@@ -573,15 +588,15 @@ function renderMeetings() {
     <div class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_34px_rgba(15,23,42,0.05)]">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Meetings</p>
-          <h2 class="mt-2 text-xl font-semibold text-slate-900">Notion-style meeting database</h2>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">미팅 기록</p>
+          <h2 class="mt-2 text-xl font-semibold text-slate-900">노션 스타일 미팅 데이터베이스</h2>
         </div>
         <button
           type="button"
           data-action="new-meeting"
           class="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
         >
-          New Meeting
+          미팅 추가
         </button>
       </div>
 
@@ -589,10 +604,10 @@ function renderMeetings() {
         <table class="workspace-meeting-table min-w-full bg-white text-left">
           <thead class="bg-slate-50">
             <tr class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-              <th class="px-4 py-4">Date</th>
-              <th class="px-4 py-4">Meeting type</th>
-              <th class="px-4 py-4">Summary</th>
-              <th class="px-4 py-4">Notes</th>
+              <th class="px-4 py-4">날짜</th>
+              <th class="px-4 py-4">미팅 유형</th>
+              <th class="px-4 py-4">요약</th>
+              <th class="px-4 py-4">노트</th>
             </tr>
           </thead>
           <tbody>
@@ -610,7 +625,7 @@ function renderMeetings() {
                           </td>
                           <td class="px-4 py-4 font-medium text-slate-900">${escapeHtml(meeting.summary || "-")}</td>
                           <td class="px-4 py-4">
-                            <p class="workspace-note-clamp whitespace-pre-wrap leading-6 text-slate-600">${escapeHtml(meeting.notes || "No notes yet.")}</p>
+                            <p class="workspace-note-clamp whitespace-pre-wrap leading-6 text-slate-600">${escapeHtml(meeting.notes || "아직 기록된 노트가 없습니다.")}</p>
                           </td>
                         </tr>
                       `
@@ -619,7 +634,7 @@ function renderMeetings() {
                 : `
                     <tr>
                       <td colspan="4" class="px-4 py-10 text-center text-sm text-slate-400">
-                        Add kickoff notes, concept reviews, or script feedback sessions.
+                        킥오프, 콘셉트 리뷰, 대본 피드백 미팅을 추가해 주세요.
                       </td>
                     </tr>
                   `
@@ -647,11 +662,10 @@ function renderNoAccess() {
   refs.header.innerHTML = `
     <div class="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <div class="rounded-[28px] border border-slate-200 bg-white p-8 shadow-[0_18px_34px_rgba(15,23,42,0.05)]">
-        <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">No workspace linked</p>
-        <h1 class="mt-3 text-2xl font-semibold text-slate-950">Your account is signed in, but no creator workspace is assigned yet.</h1>
+        <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">연결된 워크스페이스 없음</p>
+        <h1 class="mt-3 text-2xl font-semibold text-slate-950">로그인은 되었지만 연결된 크리에이터 워크스페이스가 없습니다.</h1>
         <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-500">
-          Ask the company admin to connect your Supabase Auth email to a creator record using the
-          <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">login_email</code> field.
+          회사 관리자에게 <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">login_email</code> 필드로 현재 Supabase Auth 이메일을 연결해 달라고 요청해 주세요.
         </p>
       </div>
     </div>
@@ -659,6 +673,7 @@ function renderNoAccess() {
   refs.tabs.innerHTML = "";
   refs.sidebar.innerHTML = "";
   refs.overview.innerHTML = "";
+  refs.strategy.innerHTML = "";
   refs.meetings.innerHTML = "";
   refs.pipeline.innerHTML = "";
   refs.feedback.innerHTML = "";
@@ -696,7 +711,7 @@ async function handleStatusChange(contentId, nextStatus) {
     contentId,
     status: nextStatus
   });
-  showToast("Pipeline updated.", "success");
+  showToast("파이프라인이 업데이트되었습니다.", "success");
 }
 
 async function handleAddFeedback({ contentId, comment }) {
@@ -704,7 +719,7 @@ async function handleAddFeedback({ contentId, comment }) {
     contentId,
     comment
   });
-  showToast("Feedback saved.", "success");
+  showToast("피드백이 저장되었습니다.", "success");
 }
 
 async function mutateWorkspace(action, payload, options = {}) {
@@ -729,36 +744,36 @@ function openMeetingModal() {
     <div class="space-y-5">
       <div class="flex items-start justify-between gap-4">
         <div>
-          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">New meeting</p>
-          <h2 class="mt-2 text-2xl font-semibold text-slate-950">Log the latest sync</h2>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">새 미팅</p>
+          <h2 class="mt-2 text-2xl font-semibold text-slate-950">최근 미팅 내용을 기록하세요</h2>
         </div>
-        <button type="button" data-close-modal class="rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-500 transition hover:border-slate-300 hover:bg-slate-50">Close</button>
+        <button type="button" data-close-modal class="rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-500 transition hover:border-slate-300 hover:bg-slate-50">닫기</button>
       </div>
       <form class="space-y-4" data-meeting-form>
         <div class="grid gap-4 md:grid-cols-2">
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="meeting-date">Date</label>
+            <label class="block text-sm font-medium text-slate-700" for="meeting-date">날짜</label>
             <input id="meeting-date" name="date" type="date" value="${todayValue()}" class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white" required />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="meeting-type">Meeting type</label>
+            <label class="block text-sm font-medium text-slate-700" for="meeting-type">미팅 유형</label>
             <select id="meeting-type" name="meetingType" class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white" required>
-              <option value="kickoff">Kickoff</option>
-              <option value="concept">Concept</option>
-              <option value="content">Content</option>
-              <option value="script_feedback">Script feedback</option>
+              <option value="kickoff">킥오프</option>
+              <option value="concept">콘셉트</option>
+              <option value="content">콘텐츠</option>
+              <option value="script_feedback">대본 피드백</option>
             </select>
           </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700" for="meeting-summary">Summary</label>
-          <input id="meeting-summary" name="summary" class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white" placeholder="Main decision or outcome" required />
+          <label class="block text-sm font-medium text-slate-700" for="meeting-summary">요약</label>
+          <input id="meeting-summary" name="summary" class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white" placeholder="핵심 결정이나 결과를 적어 주세요" required />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700" for="meeting-notes">Notes</label>
-          <textarea id="meeting-notes" name="notes" rows="7" class="mt-2 w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-slate-400 focus:bg-white" placeholder="Capture detailed notes, open questions, and action items."></textarea>
+          <label class="block text-sm font-medium text-slate-700" for="meeting-notes">노트</label>
+          <textarea id="meeting-notes" name="notes" rows="7" class="mt-2 w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-slate-400 focus:bg-white" placeholder="상세 메모, 미해결 질문, 다음 액션을 적어 주세요."></textarea>
         </div>
-        <button type="submit" class="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800">Save meeting</button>
+        <button type="submit" class="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800">미팅 저장</button>
       </form>
     </div>
   `);
@@ -775,7 +790,7 @@ function openMeetingModal() {
         notes: String(form.get("notes") || "")
       });
       closeModal();
-      showToast("Meeting saved.", "success");
+      showToast("미팅이 저장되었습니다.", "success");
     });
 }
 
@@ -784,41 +799,41 @@ function openCreateContentModal() {
     <div class="space-y-5">
       <div class="flex items-start justify-between gap-4">
         <div>
-          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">New content card</p>
-          <h2 class="mt-2 text-2xl font-semibold text-slate-950">Add a pipeline item</h2>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">새 콘텐츠 카드</p>
+          <h2 class="mt-2 text-2xl font-semibold text-slate-950">파이프라인 항목을 추가하세요</h2>
         </div>
-        <button type="button" data-close-modal class="rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-500 transition hover:border-slate-300 hover:bg-slate-50">Close</button>
+        <button type="button" data-close-modal class="rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-500 transition hover:border-slate-300 hover:bg-slate-50">닫기</button>
       </div>
       <form class="space-y-4" data-content-form>
         <div>
-          <label class="block text-sm font-medium text-slate-700" for="content-title">Title</label>
-          <input id="content-title" name="title" class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white" placeholder="ADHD diagnosis story" required />
+          <label class="block text-sm font-medium text-slate-700" for="content-title">제목</label>
+          <input id="content-title" name="title" class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white" placeholder="ADHD 진단 스토리" required />
         </div>
         <div class="grid gap-4 md:grid-cols-2">
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="content-status">Stage</label>
+            <label class="block text-sm font-medium text-slate-700" for="content-status">단계</label>
             <select id="content-status" name="status" class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white">
-              <option value="idea">Idea</option>
-              <option value="script">Script</option>
-              <option value="filming">Filming</option>
-              <option value="editing">Editing</option>
-              <option value="published">Published</option>
+              <option value="idea">아이디어</option>
+              <option value="script">대본</option>
+              <option value="filming">촬영</option>
+              <option value="editing">편집</option>
+              <option value="published">발행</option>
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="content-publish-date">Publish date</label>
+            <label class="block text-sm font-medium text-slate-700" for="content-publish-date">발행일</label>
             <input id="content-publish-date" name="publishDate" type="date" class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white" />
           </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700" for="content-concept">Concept</label>
-          <textarea id="content-concept" name="concept" rows="4" class="mt-2 w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-slate-400 focus:bg-white" placeholder="Document the hook, audience tension, or angle."></textarea>
+          <label class="block text-sm font-medium text-slate-700" for="content-concept">콘셉트</label>
+          <textarea id="content-concept" name="concept" rows="4" class="mt-2 w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-slate-400 focus:bg-white" placeholder="후킹 포인트, 시청자 긴장감, 핵심 각도를 정리해 주세요."></textarea>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700" for="content-script">Script</label>
-          <textarea id="content-script" name="script" rows="8" class="mt-2 w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-slate-400 focus:bg-white" placeholder="Add a rough draft or beat outline."></textarea>
+          <label class="block text-sm font-medium text-slate-700" for="content-script">대본 초안</label>
+          <textarea id="content-script" name="script" rows="8" class="mt-2 w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-slate-400 focus:bg-white" placeholder="러프 대본이나 비트시트를 적어 주세요."></textarea>
         </div>
-        <button type="submit" class="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800">Create card</button>
+        <button type="submit" class="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800">카드 생성</button>
       </form>
     </div>
   `);
@@ -836,7 +851,7 @@ function openCreateContentModal() {
         publishDate: String(form.get("publishDate") || "")
       });
       closeModal();
-      showToast("Content card created.", "success");
+      showToast("콘텐츠 카드가 생성되었습니다.", "success");
     });
 }
 
@@ -845,27 +860,27 @@ function openMilestoneModal() {
     <div class="space-y-5">
       <div class="flex items-start justify-between gap-4">
         <div>
-          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">New milestone</p>
-          <h2 class="mt-2 text-2xl font-semibold text-slate-950">Capture a growth moment</h2>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">새 마일스톤</p>
+          <h2 class="mt-2 text-2xl font-semibold text-slate-950">성장 순간을 기록하세요</h2>
         </div>
-        <button type="button" data-close-modal class="rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-500 transition hover:border-slate-300 hover:bg-slate-50">Close</button>
+        <button type="button" data-close-modal class="rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-500 transition hover:border-slate-300 hover:bg-slate-50">닫기</button>
       </div>
       <form class="space-y-4" data-milestone-form>
         <div class="grid gap-4 md:grid-cols-2">
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="milestone-title">Title</label>
-            <input id="milestone-title" name="title" class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white" placeholder="First 1,000 views" required />
+            <label class="block text-sm font-medium text-slate-700" for="milestone-title">제목</label>
+            <input id="milestone-title" name="title" class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white" placeholder="첫 1,000뷰 달성" required />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="milestone-date">Date</label>
+            <label class="block text-sm font-medium text-slate-700" for="milestone-date">날짜</label>
             <input id="milestone-date" name="date" type="date" value="${todayValue()}" class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white" required />
           </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700" for="milestone-description">Description</label>
-          <textarea id="milestone-description" name="description" rows="5" class="mt-2 w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-slate-400 focus:bg-white" placeholder="Document why this milestone mattered and what changed next."></textarea>
+          <label class="block text-sm font-medium text-slate-700" for="milestone-description">설명</label>
+          <textarea id="milestone-description" name="description" rows="5" class="mt-2 w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-slate-400 focus:bg-white" placeholder="이 마일스톤이 왜 중요했고 이후 무엇이 달라졌는지 적어 주세요."></textarea>
         </div>
-        <button type="submit" class="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800">Save milestone</button>
+        <button type="submit" class="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800">마일스톤 저장</button>
       </form>
     </div>
   `);
@@ -881,7 +896,7 @@ function openMilestoneModal() {
         description: String(form.get("description") || "")
       });
       closeModal();
-      showToast("Milestone saved.", "success");
+      showToast("마일스톤이 저장되었습니다.", "success");
     });
 }
 
@@ -889,7 +904,7 @@ function openContentDetail(contentId) {
   const content = (state.workspace?.contents || []).find((item) => item.id === contentId);
 
   if (!content) {
-    showToast("Content card not found.", "error");
+    showToast("콘텐츠 카드를 찾을 수 없습니다.", "error");
     return;
   }
 
@@ -915,7 +930,7 @@ function openContentDetail(contentId) {
         },
         { reopenContentId: contentId }
       );
-      showToast("Content updated.", "success");
+      showToast("콘텐츠가 업데이트되었습니다.", "success");
     });
 
   refs.modal
@@ -931,7 +946,7 @@ function openContentDetail(contentId) {
         },
         { reopenContentId: contentId }
       );
-      showToast("Comment added.", "success");
+      showToast("댓글이 추가되었습니다.", "success");
     });
 
   refs.modal
@@ -942,7 +957,7 @@ function openContentDetail(contentId) {
       const file = form.get("file");
 
       if (!(file instanceof File) || file.size === 0) {
-        showToast("Choose a file to upload.", "error");
+        showToast("업로드할 파일을 선택해 주세요.", "error");
         return;
       }
 
@@ -955,7 +970,7 @@ function openContentDetail(contentId) {
 
       await loadWorkspace();
       openContentDetail(contentId);
-      showToast("Attachment uploaded.", "success");
+      showToast("첨부 파일이 업로드되었습니다.", "success");
     });
 }
 
@@ -980,7 +995,7 @@ async function uploadAttachment({ contentId, title, kind, file }) {
     });
 
   if (error) {
-    throw new Error(error.message || "Upload failed.");
+    throw new Error(error.message || "업로드에 실패했습니다.");
   }
 
   await authorizedJson("/.netlify/functions/workspace-save", {
@@ -1007,7 +1022,7 @@ async function authorizedJson(url, options = {}) {
   } = await state.supabase.auth.getSession();
 
   if (!session?.access_token) {
-    throw new Error("Login required.");
+    throw new Error("로그인이 필요합니다.");
   }
 
   const headers = new Headers(options.headers || {});
@@ -1028,10 +1043,10 @@ async function authorizedJson(url, options = {}) {
     if (response.status === 401) {
       await state.supabase.auth.signOut();
       clearWorkspace();
-      showAuthGate("Your session expired. Please sign in again.");
+      showAuthGate("세션이 만료되었습니다. 다시 로그인해 주세요.");
     }
 
-    throw new Error(payload.error || payload.message || "Request failed.");
+    throw new Error(payload.error || payload.message || "요청 처리에 실패했습니다.");
   }
 
   return payload;
@@ -1091,6 +1106,7 @@ function clearWorkspace() {
   refs.tabs.innerHTML = "";
   refs.notice.innerHTML = "";
   refs.overview.innerHTML = "";
+  refs.strategy.innerHTML = "";
   refs.meetings.innerHTML = "";
   refs.pipeline.innerHTML = "";
   refs.feedback.innerHTML = "";
@@ -1120,15 +1136,15 @@ function showToast(message, tone = "success") {
 function buildRecentActivity() {
   const meetings = (state.workspace?.meetings || []).map((meeting) => ({
     date: meeting.date || meeting.created_at,
-    title: `${MEETING_TYPE_LABELS[meeting.meeting_type] || meeting.meeting_type} logged`,
-    description: meeting.summary || "Meeting note added."
+    title: `${MEETING_TYPE_LABELS[meeting.meeting_type] || meeting.meeting_type} 기록`,
+    description: meeting.summary || "미팅 노트가 추가되었습니다."
   }));
 
   const feedback = (state.workspace?.feedback || []).map((item) => {
     const content = (state.workspace?.contents || []).find((entry) => entry.id === item.content_id);
     return {
       date: item.created_at,
-      title: `Feedback from ${item.author || "workspace user"}`,
+      title: `${item.author || "워크스페이스 사용자"}님의 피드백`,
       description: content
         ? `${content.title} · ${truncateText(item.comment, 80)}`
         : truncateText(item.comment, 80)
@@ -1138,13 +1154,13 @@ function buildRecentActivity() {
   const milestones = (state.workspace?.milestones || []).map((item) => ({
     date: item.date || item.created_at,
     title: item.title,
-    description: item.description || "Milestone added."
+    description: item.description || "마일스톤이 추가되었습니다."
   }));
 
   const attachments = (state.workspace?.attachments || []).map((item) => ({
     date: item.created_at,
-    title: ATTACHMENT_LABELS[item.kind] || "Attachment uploaded",
-    description: item.title || item.file_name || "New file added."
+    title: ATTACHMENT_LABELS[item.kind] || "첨부 파일 업로드",
+    description: item.title || item.file_name || "새 파일이 추가되었습니다."
   }));
 
   return [...meetings, ...feedback, ...milestones, ...attachments].sort(

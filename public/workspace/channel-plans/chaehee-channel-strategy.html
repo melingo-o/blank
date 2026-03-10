@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>정신체릿 — YouTube 채널 전략 기획서</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Mono:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+
+<style>
+  /* ── Reset & Base ─────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink:       #1a1a1a;
+    --ink-2:     #4a4a4a;
+    --ink-3:     #8a8a8a;
+    --line:      #e8e8e8;
+    --bg:        #fafafa;
+    --bg-card:   #ffffff;
+    --accent:    #5b4fcf;
+    --accent-2:  #f04060;
+    --accent-3:  #00a878;
+    --accent-4:  #f0a500;
+    --mono:      'DM Mono', monospace;
+    --sans:      'Noto Sans KR', sans-serif;
+    --serif:     'DM Serif Display', serif;
+    --r:         6px;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Layout ───────────────────────────────────────────────── */
+  .page { max-width: 900px; margin: 0 auto; padding: 0 32px 120px; }
+
+  /* ── Cover ────────────────────────────────────────────────── */
+  .cover {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 80px 0 60px;
+    border-bottom: 1px solid var(--line);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cover::before {
+    content: '🧠';
+    position: absolute;
+    right: -20px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 280px;
+    opacity: 0.04;
+    user-select: none;
+    pointer-events: none;
+  }
+
+  .cover-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(91,79,207,0.08);
+    padding: 5px 12px;
+    border-radius: 100px;
+    width: fit-content;
+    margin-bottom: 32px;
+  }
+
+  .cover-title {
+    font-family: var(--serif);
+    font-size: clamp(40px, 7vw, 72px);
+    line-height: 1.1;
+    color: var(--ink);
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+  }
+
+  .cover-title em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .cover-sub {
+    font-size: 16px;
+    color: var(--ink-2);
+    font-weight: 300;
+    margin-bottom: 48px;
+    max-width: 560px;
+  }
+
+  .cover-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    overflow: hidden;
+    max-width: 640px;
+    margin-bottom: 48px;
+  }
+
+  .stat-box {
+    background: var(--bg-card);
+    padding: 20px 24px;
+  }
+
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 4px;
+  }
+
+  .stat-value {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .cover-toc {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .toc-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 13px;
+    color: var(--ink-2);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .toc-item:hover { color: var(--accent); }
+
+  .toc-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+    width: 24px;
+  }
+
+  .toc-line {
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+    max-width: 60px;
+  }
+
+  /* ── Section ──────────────────────────────────────────────── */
+  .section {
+    padding: 80px 0 60px;
+    border-bottom: 1px solid var(--line);
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+
+  .section.visible { opacity: 1; transform: translateY(0); }
+
+  .section-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+    margin-bottom: 48px;
+  }
+
+  .section-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--ink-3);
+    padding-top: 6px;
+    white-space: nowrap;
+  }
+
+  .section-title {
+    font-family: var(--serif);
+    font-size: clamp(24px, 4vw, 36px);
+    line-height: 1.2;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+
+  .section-title span {
+    color: var(--accent);
+    font-style: italic;
+  }
+
+  /* ── Sub-section ──────────────────────────────────────────── */
+  .sub { margin-bottom: 40px; }
+
+  .sub-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .sub-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  /* ── Tables ───────────────────────────────────────────────── */
+  .tbl-wrap { overflow-x: auto; margin-bottom: 8px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead th {
+    text-align: left;
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    border-bottom: 2px solid var(--ink);
+    white-space: nowrap;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--line);
+    transition: background 0.15s;
+  }
+
+  tbody tr:hover { background: rgba(91,79,207,0.03); }
+
+  tbody tr:last-child { border-bottom: none; }
+
+  td {
+    padding: 12px 14px;
+    vertical-align: top;
+    color: var(--ink-2);
+    line-height: 1.6;
+  }
+
+  td:first-child {
+    font-weight: 500;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  td.wrap-ok { white-space: normal; }
+
+  /* special rows */
+  tr.highlight-row td {
+    background: rgba(91,79,207,0.05);
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  tr.step-row td:first-child {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-3);
+  }
+
+  /* ── Cards ────────────────────────────────────────────────── */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  .card {
+    background: var(--bg-card);
+    padding: 24px;
+  }
+
+  .card-icon { font-size: 20px; margin-bottom: 10px; }
+
+  .card-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 6px;
+    letter-spacing: 0.02em;
+  }
+
+  .card-body { font-size: 12px; color: var(--ink-2); line-height: 1.6; }
+
+  /* ── Insight Box ──────────────────────────────────────────── */
+  .insight {
+    border-left: 3px solid var(--accent);
+    padding: 18px 24px;
+    background: rgba(91,79,207,0.04);
+    border-radius: 0 var(--r) var(--r) 0;
+    margin: 24px 0;
+  }
+
+  .insight-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+
+  .insight p { font-size: 13px; color: var(--ink-2); line-height: 1.7; }
+
+  /* ── HHH Badges ───────────────────────────────────────────── */
+  .hhh-header {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    overflow: hidden;
+    margin-bottom: 32px;
+  }
+
+  .hhh-cell {
+    padding: 18px 20px;
+    background: var(--bg-card);
+  }
+
+  .hhh-cell .badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 100px;
+    margin-bottom: 8px;
+  }
+
+  .badge-hero { background: rgba(240,64,96,0.1); color: var(--accent-2); }
+  .badge-hub  { background: rgba(91,79,207,0.1); color: var(--accent);   }
+  .badge-help { background: rgba(240,165,0,0.1);  color: var(--accent-4); }
+
+  .hhh-cell h4 { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+  .hhh-cell p  { font-size: 11px; color: var(--ink-3); }
+
+  /* ── Roadmap ──────────────────────────────────────────────── */
+  .roadmap {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    overflow: hidden;
+    margin-bottom: 32px;
+  }
+
+  .road-step {
+    background: var(--bg-card);
+    padding: 24px 20px;
+    position: relative;
+  }
+
+  .road-step::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .road-step:nth-child(1)::before { background: var(--accent-3); }
+  .road-step:nth-child(2)::before { background: var(--accent); }
+  .road-step:nth-child(3)::before { background: var(--accent-4); }
+  .road-step:nth-child(4)::before { background: var(--accent-2); }
+
+  .road-period {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--ink-3);
+    margin-bottom: 6px;
+  }
+
+  .road-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+
+  .road-desc {
+    font-size: 11.5px;
+    color: var(--ink-2);
+    line-height: 1.65;
+    margin-bottom: 12px;
+  }
+
+  .road-goal {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--accent);
+  }
+
+  /* ── Funnel ───────────────────────────────────────────────── */
+  .funnel {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  .funnel-step {
+    display: grid;
+    grid-template-columns: 28px 1fr 1fr auto;
+    align-items: center;
+    gap: 20px;
+    padding: 14px 20px;
+    background: var(--bg-card);
+    transition: background 0.15s;
+  }
+
+  .funnel-step:hover { background: rgba(91,79,207,0.03); }
+
+  .funnel-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+  }
+
+  .funnel-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .funnel-desc { font-size: 12px; color: var(--ink-2); }
+
+  .funnel-time {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+    white-space: nowrap;
+  }
+
+  /* ── Tip Card ─────────────────────────────────────────────── */
+  .tip-card {
+    background: var(--ink);
+    color: var(--bg);
+    border-radius: var(--r);
+    padding: 32px 36px;
+    margin-top: 40px;
+  }
+
+  .tip-card .tip-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent-4);
+    margin-bottom: 12px;
+  }
+
+  .tip-card p {
+    font-size: 15px;
+    line-height: 1.8;
+    color: #d0d0d0;
+  }
+
+  .tip-card strong { color: #fff; font-weight: 600; }
+
+  /* ── Slogan cards ─────────────────────────────────────────── */
+  .slogan-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  .slogan-item {
+    display: grid;
+    grid-template-columns: 32px 1fr auto;
+    align-items: center;
+    gap: 20px;
+    padding: 16px 20px;
+    background: var(--bg-card);
+    transition: background 0.15s;
+  }
+
+  .slogan-item:hover { background: rgba(91,79,207,0.03); }
+
+  .slogan-item.recommended {
+    background: rgba(91,79,207,0.05);
+    border-left: 3px solid var(--accent);
+    padding-left: 17px;
+  }
+
+  .slogan-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+  }
+
+  .slogan-text {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  .slogan-item.recommended .slogan-text { color: var(--accent); }
+
+  .slogan-point { font-size: 11px; color: var(--ink-3); text-align: right; }
+
+  .badge-rec {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    padding: 2px 8px;
+    border-radius: 100px;
+    background: var(--accent);
+    color: #fff;
+    white-space: nowrap;
+  }
+
+  /* ── First 5 videos ───────────────────────────────────────── */
+  .video-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  .video-item {
+    display: grid;
+    grid-template-columns: 28px 1fr 160px;
+    gap: 20px;
+    align-items: start;
+    padding: 16px 20px;
+    background: var(--bg-card);
+    transition: background 0.15s;
+  }
+
+  .video-item:hover { background: rgba(91,79,207,0.03); }
+
+  .video-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-3);
+    padding-top: 2px;
+  }
+
+  .video-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 3px;
+  }
+
+  .video-strategy { font-size: 11.5px; color: var(--ink-3); }
+
+  .video-keyword {
+    font-size: 11px;
+    color: var(--ink-3);
+    text-align: right;
+    padding-top: 2px;
+  }
+
+  /* ── Thumb rules ──────────────────────────────────────────── */
+  .thumb-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  .thumb-item {
+    background: var(--bg-card);
+    padding: 18px 20px;
+  }
+
+  .thumb-item dt {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .thumb-item dt::before {
+    content: '';
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .thumb-item dt.danger::before { background: var(--accent-2); }
+
+  .thumb-item dd {
+    font-size: 12px;
+    color: var(--ink-2);
+    list-style: none;
+    padding-left: 12px;
+  }
+
+  /* ── Nav ──────────────────────────────────────────────────── */
+  .sidenav {
+    position: fixed;
+    right: 32px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 100;
+  }
+
+  .nav-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--line);
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+  }
+
+  .nav-dot.active {
+    background: var(--accent);
+    transform: scale(1.5);
+  }
+
+  .nav-dot:hover { background: var(--accent); }
+
+  /* ── Print ────────────────────────────────────────────────── */
+  @media print {
+    .sidenav { display: none; }
+    .section { opacity: 1; transform: none; }
+    .cover { min-height: auto; }
+    body { font-size: 12px; }
+  }
+
+  @media (max-width: 680px) {
+    .page { padding: 0 20px 80px; }
+    .cover-stats, .roadmap { grid-template-columns: repeat(2, 1fr); }
+    .hhh-header { grid-template-columns: 1fr; }
+    .thumb-grid { grid-template-columns: 1fr; }
+    .video-item { grid-template-columns: 28px 1fr; }
+    .video-keyword { display: none; }
+    .funnel-step { grid-template-columns: 28px 1fr; }
+    .funnel-time { display: none; }
+    .sidenav { display: none; }
+    .slogan-item { grid-template-columns: 32px 1fr; }
+    .slogan-point { display: none; }
+  }
+
+
+/* ── Chapter Toggle Mode ───────────────────────── */
+
+.section,
+.cover {
+  display: none;
+}
+
+.section.active,
+.cover.active {
+  display: block;
+  opacity: 1;
+  transform: none;
+}
+
+
+  /* ── Top chapter menu (persistent) ───────────────────────── */
+  .topmenu {
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .topmenu-inner {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 12px 32px;
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .topmenu-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-right: 6px;
+    white-space: nowrap;
+  }
+
+  .topmenu .toc-item { margin: 0; }
+  .topmenu .toc-line { display: none; }
+  .topmenu .toc-num { width: auto; }
+  .topmenu .toc-item.active { color: var(--accent); }
+  .topmenu .toc-item.active .toc-num { color: var(--accent); }
+
+  @media (max-width: 680px) {
+    .topmenu-inner { padding: 10px 20px; }
+    .topmenu-title { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Top chapter menu -->
+<header class="topmenu" aria-label="상단 메뉴">
+  <div class="topmenu-inner">
+    <span class="topmenu-title">MENU</span>
+    <a href="#cover" class="toc-item topmenu-link active" data-target="cover">
+      <span class="toc-num">00</span>
+      표지
+    </a>
+    <a href="#step1" class="toc-item topmenu-link" data-target="step1">
+      <span class="toc-num">01</span>
+      시장 및 타겟 분석
+    </a>
+    <a href="#step2" class="toc-item topmenu-link" data-target="step2">
+      <span class="toc-num">02</span>
+      채널 컨셉 & 차별화 전략
+    </a>
+    <a href="#step3" class="toc-item topmenu-link" data-target="step3">
+      <span class="toc-num">03</span>
+      H-H-H 콘텐츠 라인업 기획
+    </a>
+    <a href="#step4" class="toc-item topmenu-link" data-target="step4">
+      <span class="toc-num">04</span>
+      성장 로드맵 & 강의 비즈니스 연결
+    </a>
+  </div>
+</header>
+
+<!-- Side nav dots -->
+<nav class="sidenav" aria-label="섹션 네비게이션">
+  <div class="nav-dot active" data-target="cover" title="표지"></div>
+  <div class="nav-dot" data-target="step1" title="타겟 분석"></div>
+  <div class="nav-dot" data-target="step2" title="채널 컨셉"></div>
+  <div class="nav-dot" data-target="step3" title="콘텐츠 전략"></div>
+  <div class="nav-dot" data-target="step4" title="성장 로드맵"></div>
+</nav>
+
+<div class="page">
+
+  <!-- ── COVER ─────────────────────────────────────────────── -->
+  <section class="cover active" id="cover">
+    <div class="cover-tag">YouTube Channel Strategy · 2025</div>
+
+    <h1 class="cover-title">
+      정신체릿<br>
+      <em>우당쾅쾅</em> ADHD 라이프
+    </h1>
+    <p class="cover-sub">1년 내 구독자 10만 달성 & 강의 비즈니스 연결을 위한 전략 기획서</p>
+
+    <div class="cover-stats">
+      <div class="stat-box">
+        <div class="stat-label">목표</div>
+        <div class="stat-value">구독자 10만</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">기간</div>
+        <div class="stat-value">12개월</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">수익 모델</div>
+        <div class="stat-value">강의 비즈니스</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">핵심 전략</div>
+        <div class="stat-value">H-H-H 콘텐츠</div>
+      </div>
+    </div>
+
+    <div class="cover-toc">
+      <a href="#step1" class="toc-item">
+        <span class="toc-num">01</span>
+        <span class="toc-line"></span>
+        시장 및 타겟 분석
+      </a>
+      <a href="#step2" class="toc-item">
+        <span class="toc-num">02</span>
+        <span class="toc-line"></span>
+        채널 컨셉 & 차별화 전략
+      </a>
+      <a href="#step3" class="toc-item">
+        <span class="toc-num">03</span>
+        <span class="toc-line"></span>
+        H-H-H 콘텐츠 라인업 기획
+      </a>
+      <a href="#step4" class="toc-item">
+        <span class="toc-num">04</span>
+        <span class="toc-line"></span>
+        성장 로드맵 & 강의 비즈니스 연결
+      </a>
+    </div>
+  </section>
+
+
+  <!-- ── STEP 1 ─────────────────────────────────────────────── -->
+  <section class="section" id="step1">
+    <div class="section-header">
+      <span class="section-num">01 /</span>
+      <h2 class="section-title">시장 및 타겟 분석<br><span>Targeting</span></h2>
+    </div>
+
+    <div class="sub">
+      <div class="sub-label">타겟 정의</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>구분</th>
+              <th>타겟 설명</th>
+              <th>규모 추정</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>핵심 타겟<br><small style="color:var(--ink-3);font-size:11px">Core</small></td>
+              <td class="wrap-ok">20~35세 성인 ADHD 진단자 / 의심 증상자. 직장 적응 실패, 잦은 이직, 관계 문제로 자존감이 낮음</td>
+              <td>국내 추정 약 120만 명<br><small style="color:var(--ink-3)">유병률 2.4%</small></td>
+            </tr>
+            <tr>
+              <td>1차 확장<br><small style="color:var(--ink-3);font-size:11px">Extension 1</small></td>
+              <td class="wrap-ok">'나 혹시 ADHD?' 를 검색하는 30~40대 미진단 성인. 번아웃·집중력 문제를 겪는 직장인·프리랜서</td>
+              <td>약 500만+<br><small style="color:var(--ink-3)">자가진단 검색층</small></td>
+            </tr>
+            <tr>
+              <td>2차 확장<br><small style="color:var(--ink-3);font-size:11px">Extension 2</small></td>
+              <td class="wrap-ok">ADHD 자녀/파트너를 둔 가족, 심리학·상담 전공자</td>
+              <td>추가 유입 가능</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="sub">
+      <div class="sub-label">Pain Points vs Needs 분석</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Pain Point (결핍)</th>
+              <th>YouTube Needs (욕구)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="wrap-ok">"나만 이러는 건가?" — 고립감과 자기혐오</td>
+              <td class="wrap-ok">"나 같은 사람이 있다"는 공감과 소속감</td>
+            </tr>
+            <tr>
+              <td class="wrap-ok">정보는 많은데 내 삶에 적용이 안 됨</td>
+              <td class="wrap-ok">실제로 써먹을 수 있는 ADHD 맞춤형 실전 팁</td>
+            </tr>
+            <tr>
+              <td class="wrap-ok">약을 먹는 것에 대한 죄책감·불확실성</td>
+              <td class="wrap-ok">솔직한 약물 경험담 (부작용 포함)</td>
+            </tr>
+            <tr>
+              <td class="wrap-ok">SNS 속 ADHD 콘텐츠의 과장·왜곡</td>
+              <td class="wrap-ok">진단 받은 당사자의 신뢰 있는 목소리</td>
+            </tr>
+            <tr>
+              <td class="wrap-ok">"치료해야 할 장애"라는 사회적 낙인</td>
+              <td class="wrap-ok">"이렇게도 잘 살 수 있다"는 대안적 삶의 모델</td>
+            </tr>
+            <tr>
+              <td class="wrap-ok">거창한 계획을 세우고 작심삼일 반복</td>
+              <td class="wrap-ok">작고 실현 가능한 루틴 시스템</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="insight">
+      <div class="insight-label">핵심 인사이트</div>
+      <p>이 채널의 타겟은 <strong>정보를 원하는 게 아니라</strong> "나도 괜찮을 수 있다"는 <strong>증거</strong>를 원합니다. 정보 채널이 아닌 <strong>동반자형 채널</strong>로 포지셔닝해야 합니다.</p>
+    </div>
+  </section>
+
+
+  <!-- ── STEP 2 ─────────────────────────────────────────────── -->
+  <section class="section" id="step2">
+    <div class="section-header">
+      <span class="section-num">02 /</span>
+      <h2 class="section-title">채널 컨셉 & 차별화<br><span>Concept & USP</span></h2>
+    </div>
+
+    <div class="sub">
+      <div class="sub-label">한 줄 슬로건 — 3가지 후보 중 최종 1개 추천</div>
+      <div class="slogan-list">
+        <div class="slogan-item">
+          <span class="slogan-tag">A</span>
+          <span class="slogan-text">ADHD와 싸우지 않고, 같이 살기로 했습니다</span>
+          <span class="slogan-point">공생의 태도 강조</span>
+        </div>
+        <div class="slogan-item">
+          <span class="slogan-tag">B</span>
+          <span class="slogan-text">완벽하지 않아도 오늘도 한 발, ADHD 라이프</span>
+          <span class="slogan-point">작은 성취의 누적 강조</span>
+        </div>
+        <div class="slogan-item recommended">
+          <span class="slogan-tag">C</span>
+          <span class="slogan-text">우리 뇌는 다르게 작동합니다. 틀린 게 아니라.</span>
+          <span class="badge-rec">추천</span>
+        </div>
+      </div>
+      <div class="insight" style="margin-top:12px">
+        <div class="insight-label">추천 이유</div>
+        <p>단순 공감을 넘어 <strong>세계관을 제시</strong>합니다. 낙인 해소 + 신경다양성 프레이밍으로 비ADHD 시청자도 끌어들이는 <strong>확장성이 가장 높습니다.</strong></p>
+      </div>
+    </div>
+
+    <div class="sub">
+      <div class="sub-label">브랜드 정체성</div>
+      <div class="cards">
+        <div class="card">
+          <div class="card-icon">🎨</div>
+          <div class="card-title">시각 톤앤매너</div>
+          <div class="card-body">혼돈 속의 따뜻함. 파스텔+형광 포인트, 손글씨 폰트, 포스트잇 레이아웃</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">📸</div>
+          <div class="card-title">썸네일 스타일</div>
+          <div class="card-body">리얼 얼굴컷 70% 이상 + 짧고 강렬한 카피 한 줄. 표정이 클릭을 만든다.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">💬</div>
+          <div class="card-title">말투 / 언어</div>
+          <div class="card-body">친한 언니/형 느낌. 자기비하는 유머로, 자기혐오는 NO. "내 뇌가 또 파업함ㅋㅋ"</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🔬</div>
+          <div class="card-title">캐릭터 설정</div>
+          <div class="card-body">'실험하는 당사자 연구자'. 전문가도 아니고, 포기자도 아닌. 자기 뇌를 매일 관찰·실험하는 사람.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sub">
+      <div class="sub-label">경쟁 채널 포지셔닝</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>채널 유형</th><th>포지션</th><th>약점</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>전문가 해설형 (정신과 의사, 심리사)</td>
+              <td>신뢰도↑, 공감↓</td>
+              <td>거리감, 딱딱함</td>
+            </tr>
+            <tr>
+              <td>자극적 자가진단형 (틱톡/쇼츠)</td>
+              <td>조회수↑, 깊이↓</td>
+              <td>신뢰도 없음, 단발성</td>
+            </tr>
+            <tr>
+              <td>육아 ADHD 채널</td>
+              <td>부모 타겟 특화</td>
+              <td>성인 당사자 목소리 없음</td>
+            </tr>
+            <tr class="highlight-row">
+              <td>★ 정신체릿 (이 채널)</td>
+              <td>당사자 + 실전 + 따뜻함 → 신뢰 있는 동반자</td>
+              <td class="wrap-ok">브랜딩 일관성 강화 필요</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ── STEP 3 ─────────────────────────────────────────────── -->
+  <section class="section" id="step3">
+    <div class="section-header">
+      <span class="section-num">03 /</span>
+      <h2 class="section-title">H-H-H 콘텐츠<br><span>라인업 기획</span></h2>
+    </div>
+
+    <div class="hhh-header">
+      <div class="hhh-cell">
+        <div class="badge badge-hero">Hero</div>
+        <h4>조회수 폭발형</h4>
+        <p>월 1~2개 + 쇼츠 병행</p>
+      </div>
+      <div class="hhh-cell">
+        <div class="badge badge-hub">Hub</div>
+        <h4>검색 유입 전문</h4>
+        <p>주 1개, SEO 최적화</p>
+      </div>
+      <div class="hhh-cell">
+        <div class="badge badge-help">Help</div>
+        <h4>팬덤 형성 일상</h4>
+        <p>격주 1개, 소통 중심</p>
+      </div>
+    </div>
+
+    <!-- HERO -->
+    <div class="sub">
+      <div class="sub-label">Hero — 조회수 폭발형</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>영상 제목 예시</th><th>형식</th><th>타겟 키워드</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td class="wrap-ok">"직장인 10명 중 3명이 몰랐던 성인 ADHD 증상 7가지"</td>
+              <td>리스티클</td>
+              <td>성인ADHD, 집중력</td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td class="wrap-ok">"ADHD인 내가 노션으로 삶을 바꾼 방법 (템플릿 무료 배포)"</td>
+              <td>실전 꿀팁</td>
+              <td>노션, 생산성</td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td class="wrap-ok">"[쇼츠] 이거 공감하면 ADHD 의심해봐야 함 😅"</td>
+              <td>쇼츠 시리즈</td>
+              <td>공감, 알고리즘</td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td class="wrap-ok">"ADHD 약 먹으면 어떻게 되나요? 6개월 복용 솔직 후기"</td>
+              <td>경험담</td>
+              <td>ADHD약, 콘서타</td>
+            </tr>
+            <tr>
+              <td>5</td>
+              <td class="wrap-ok">"번아웃인 줄 알았는데 ADHD였습니다"</td>
+              <td>스토리텔링</td>
+              <td>번아웃, 직장인</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- HUB -->
+    <div class="sub">
+      <div class="sub-label">Hub — 검색 유입형 전문 콘텐츠</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>영상 제목 예시</th><th>검색 키워드</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td class="wrap-ok">"ADHD 아침 루틴 3단계 — 뇌가 깨어나는 순서가 있습니다"</td>
+              <td>ADHD 루틴, 아침 루틴</td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td class="wrap-ok">"도파민 고갈되면 나타나는 신호 5가지 & 회복법"</td>
+              <td>도파민, 도파민 부족</td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td class="wrap-ok">"ADHD와 쇼핑 충동 — 왜 우리는 더 쉽게 중독될까?"</td>
+              <td>ADHD 충동조절</td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td class="wrap-ok">"성인 ADHD 병원 처음 가는 법 (검사 종류, 비용, 후기)"</td>
+              <td>ADHD 병원, 진단</td>
+            </tr>
+            <tr>
+              <td>5</td>
+              <td class="wrap-ok">"ADHD와 인간관계 — 왜 나는 자꾸 사람을 상처주나요?"</td>
+              <td>ADHD 연애, 관계</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- HELP -->
+    <div class="sub">
+      <div class="sub-label">Help — 팬덤 형성형 일상·소통 콘텐츠</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>영상 제목 예시</th><th>목적</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td class="wrap-ok">"ADHD인이 3주 운동한 실제 결과 (뇌 상태 비교)"</td>
+              <td>브이로그 + 변화 공유</td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td class="wrap-ok">"구독자 ADHD 고민 Q&A — 제일 많이 물어본 5가지"</td>
+              <td>소통 + 팬덤</td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td class="wrap-ok">"오늘 약 까먹은 날의 하루 (무편집 브이로그)"</td>
+              <td>리얼 일상, 공감</td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td class="wrap-ok">"내가 심리학 공부 시작한 진짜 이유"</td>
+              <td>스토리 → 강의 예고 복선</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  
+    
+    <!-- ── STEP 3 ADD-ON: 초기 핵심 포맷 & 10개 포트폴리오 ─────────── -->
+    <div class="sub" style="margin-top: 28px;">
+      <div class="sub-label">초기 필수 3콘텐츠 (신뢰·유입·팬덤)</div>
+
+      <div class="cards">
+        <div class="card">
+          <div class="card-icon">🧾</div>
+          <div class="card-title">① 진단 서류 &amp; 힘들었던 서사 공개</div>
+          <div class="card-body">
+            <b>목적:</b> “진짜 ADHD 맞아?” 불신을 한 번에 해소해 채널의 존재 이유를 증명.<br>
+            <b>구조:</b> 언제부터 → 어떻게 인지 → 진단 과정 → 지금은 어떤지(완치X, <b>아직도 싸우지만 버티는 방식</b>).<br>
+            <b>주의:</b> 개인정보(모자이크) / 공개 범위는 감당 가능한 선에서.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">🏠</div>
+          <div class="card-title">② 방 공개 + ‘시야 협착’의 실체</div>
+          <div class="card-body">
+            <b>목적:</b> 초기 알고리즘 유입 + 정보성으로 신뢰 동시 확보.<br>
+            <b>구조:</b> 시야 협착 설명 → 내 방에서 어떻게 나타나는지 → 내가 쓰는 대처(작은 시스템).<br>
+            <b>주의:</b> “지저분해요” 고백으로 끝내지 말고 <b>원인-현상-대응</b>까지.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-icon">💼</div>
+          <div class="card-title">③ 본업 모먼트 + 허당미 병행</div>
+          <div class="card-body">
+            <b>목적:</b> 동정보다 “ADHD여도 저렇게 살 수 있구나” 롤모델 포지션 구축.<br>
+            <b>핵심:</b> 허당미는 개그가 아니라 “잘 지내도 ADHD는 여전함”의 <b>신뢰 증거</b>.<br>
+            <b>주의:</b> 본업/회사 노출 리스크(촬영 범위·정보 노출) 선제 체크.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sub" style="margin-top: 28px;">
+      <div class="sub-label">초기 업로드 10개 포트폴리오(업데이트)</div>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:52px;">순서</th>
+              <th>제목(안)</th>
+              <th style="width:92px;">분류</th>
+              <th>목적</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td class="wrap-ok">번아웃인 줄 알았는데 ADHD였습니다 — 진단까지의 이야기</td>
+              <td><span class="badge badge-hero">Hero</span></td>
+              <td>신뢰 토대, 정체성 선언</td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td class="wrap-ok">성인 ADHD인의 방을 공개합니다: 시야 협착의 실체</td>
+              <td><span class="badge badge-hero">Hero</span></td>
+              <td>초기 유입 + 정보성 신뢰</td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td class="wrap-ok">ADHD인이 요리하면 생기는 일 (feat. 냄비 3번 태움)</td>
+              <td><span class="badge badge-hero">Hero</span></td>
+              <td>공감·웃김·신규 유입</td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td class="wrap-ok">이거 공감하면 성인 ADHD 의심해봐야 하는 이유 7가지</td>
+              <td><span class="badge badge-hub">Hub</span></td>
+              <td>SEO 유입, 타겟 확장</td>
+            </tr>
+            <tr>
+              <td>5</td>
+              <td class="wrap-ok">ADHD 약(콘서타) 6개월 후기 — 솔직히 다 말합니다</td>
+              <td><span class="badge badge-hub">Hub</span></td>
+              <td>검색 유입, 신뢰 강화</td>
+            </tr>
+            <tr>
+              <td>6</td>
+              <td class="wrap-ok">ADHD 뇌에 맞게 요리하는 법 — 15분 안에 끝내는 구조 만들기</td>
+              <td><span class="badge badge-hub">Hub</span></td>
+              <td>실전 정보, 저장·공유</td>
+            </tr>
+            <tr>
+              <td>7</td>
+              <td class="wrap-ok">오늘 일 잘한 날 브이로그 (그러나 냉장고는 또 열어둠)</td>
+              <td><span class="badge badge-help">Help</span></td>
+              <td>본업 모먼트 + 허당미로 팬덤</td>
+            </tr>
+            <tr>
+              <td>8</td>
+              <td class="wrap-ok">ADHD 아침 루틴 3단계 — 뇌가 깨어나는 순서가 있습니다</td>
+              <td><span class="badge badge-hub">Hub</span></td>
+              <td>SEO·저장 유도(루틴)</td>
+            </tr>
+            <tr>
+              <td>9</td>
+              <td class="wrap-ok">도파민이 없는 날엔 이렇게 요리합니다 (5분 레시피)</td>
+              <td><span class="badge badge-help">Help</span></td>
+              <td>시리즈화, 댓글·재방문</td>
+            </tr>
+            <tr>
+              <td>10</td>
+              <td class="wrap-ok">구독자 Q&amp;A — 제일 많이 물어본 것들</td>
+              <td><span class="badge badge-help">Help</span></td>
+              <td>소통, 다음 주제 수집</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tip-card" style="margin-top:14px;">
+        <div class="tip-label">업로드 순서 원칙</div>
+        <p>
+          진단 서사는 <strong>빠를수록</strong> 좋고, 방 공개는 <strong>초기 유입용</strong>으로 넣고,
+          본업 모먼트는 <strong>팬이 붙은 뒤</strong> 확장하는 순서가 효율적입니다.
+        </p>
+      </div>
+    </div>
+
+    <div class="sub" style="margin-top: 28px;">
+      <div class="sub-label">요리 시리즈(채널 고유 포맷화)</div>
+
+      <div class="cards">
+        <div class="card">
+          <div class="card-icon">🎬</div>
+          <div class="card-title">EP1 — ADHD인이 요리하면 생기는 일</div>
+          <div class="card-body">실패/산만함 모음으로 공감 폭발(=Hero). “왜 이렇게 되는지”는 티저로만.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">🧠</div>
+          <div class="card-title">EP2 — 그래서 ‘ADHD 뇌 최적화’ 요리법을 만들었습니다</div>
+          <div class="card-body">1편 실패를 분석 → 시스템화(재료 세팅, 타이머 눈앞, 3단계 레시피 등). 저장/공유형.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">⚡</div>
+          <div class="card-title">EP3 — 도파민 없는 날의 요리(5분 레시피)</div>
+          <div class="card-body">감정·무기력 서사 + 초저난이도 결과물. “나도 해봤어요” 댓글 유도.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">💊</div>
+          <div class="card-title">EP4 — 약 먹은 날 vs 안 먹은 날 요리 비교</div>
+          <div class="card-body">같은 레시피, 다른 날. 체류시간/반응 포텐셜 큼(단, 의료 조언 오해 방지 문구 필요).</div>
+        </div>
+      </div>
+    </div>
+</section>
+
+
+  <!-- ── STEP 4 ─────────────────────────────────────────────── -->
+  <section class="section" id="step4">
+    <div class="section-header">
+      <span class="section-num">04 /</span>
+      <h2 class="section-title">성장 로드맵 &<br><span>강의 비즈니스 연결</span></h2>
+    </div>
+
+    <div class="sub">
+      <div class="sub-label">12개월 단계별 로드맵</div>
+      <div class="roadmap">
+        <div class="road-step">
+          <div class="road-period">0 — 3개월</div>
+          <div class="road-name">씨앗 심기</div>
+          <div class="road-desc">콘텐츠 10개 집중 업로드. 채널 색깔 & 브랜드 확립</div>
+          <div class="road-goal">0 → 1,000명</div>
+        </div>
+        <div class="road-step">
+          <div class="road-period">3 — 6개월</div>
+          <div class="road-name">알고리즘 탑승</div>
+          <div class="road-desc">조회수 높은 포맷 분석. HERO 콘텐츠 복제 생산</div>
+          <div class="road-goal">1,000 → 10,000명</div>
+        </div>
+        <div class="road-step">
+          <div class="road-period">6 — 9개월</div>
+          <div class="road-name">팬덤 형성</div>
+          <div class="road-desc">오픈채팅/멤버십 시작. 노션 템플릿 무료 배포</div>
+          <div class="road-goal">10,000 → 50,000명</div>
+        </div>
+        <div class="road-step">
+          <div class="road-period">9 — 12개월</div>
+          <div class="road-name">수익화 전환</div>
+          <div class="road-desc">10만 달성 → 강의 론칭 예고. 사전 예약 오픈</div>
+          <div class="road-goal">50,000 → 100,000명</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sub">
+      <div class="sub-label">0 ~ 1,000명 구간 — 썸네일 & 제목 전략</div>
+      <div class="thumb-grid">
+        <dl class="thumb-item">
+          <dt>얼굴 비중</dt>
+          <dd>70% 이상 — 표정이 클릭을 만든다</dd>
+        </dl>
+        <dl class="thumb-item">
+          <dt>텍스트 양</dt>
+          <dd>최대 7자 이내 (한 줄 임팩트)</dd>
+        </dl>
+        <dl class="thumb-item">
+          <dt>색상</dt>
+          <dd>배경 단색 + 형광 포인트 1개</dd>
+        </dl>
+        <dl class="thumb-item">
+          <dt>이모지</dt>
+          <dd>1~2개만 사용 (😂, ⚡, 🧠)</dd>
+        </dl>
+        <dl class="thumb-item">
+          <dt>제목 공식</dt>
+          <dd>[숫자] + [ADHD/뇌] + [감정 트리거]</dd>
+        </dl>
+        <dl class="thumb-item">
+          <dt class="danger">금지 사항</dt>
+          <dd>정보 나열형 썸네일, 텍스트 과다</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="sub">
+      <div class="sub-label">첫 5개 영상 제목 제안</div>
+      <div class="video-list">
+        <div class="video-item">
+          <span class="video-num">01</span>
+          <div>
+            <div class="video-title">"번아웃인 줄 알았는데 ADHD였습니다 — 29살 직장인 이야기"</div>
+            <div class="video-strategy">자기소개 + 스토리텔링으로 채널 정체성 확립</div>
+          </div>
+          <div class="video-keyword">정체성 확립</div>
+        </div>
+        <div class="video-item">
+          <span class="video-num">02</span>
+          <div>
+            <div class="video-title">"이거 공감하면 성인 ADHD 의심해봐야 하는 이유 7가지"</div>
+            <div class="video-strategy">SEO + 넓은 타겟 — 신규 유입 최대화</div>
+          </div>
+          <div class="video-keyword">SEO / 유입</div>
+        </div>
+        <div class="video-item">
+          <span class="video-num">03</span>
+          <div>
+            <div class="video-title">"ADHD 약 콘서타 6개월 후기 — 솔직히 다 말합니다"</div>
+            <div class="video-strategy">검색량 높은 키워드로 신뢰도 구축</div>
+          </div>
+          <div class="video-keyword">신뢰 구축</div>
+        </div>
+        <div class="video-item">
+          <span class="video-num">04</span>
+          <div>
+            <div class="video-title">"ADHD인이 아침을 포기하지 않는 법 (3단계 루틴 공개)"</div>
+            <div class="video-strategy">실전 팁형 — 저장 & 공유 유도</div>
+          </div>
+          <div class="video-keyword">저장 / 공유</div>
+        </div>
+        <div class="video-item">
+          <span class="video-num">05</span>
+          <div>
+            <div class="video-title">"도파민 없어서 삶이 무기력한 당신에게"</div>
+            <div class="video-strategy">감성적 접근 — 공감 + 충성 구독자 확보</div>
+          </div>
+          <div class="video-keyword">팬덤 형성</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sub">
+      <div class="sub-label">강의 비즈니스 연결 퍼널</div>
+      <div class="funnel">
+        <div class="funnel-step">
+          <span class="funnel-num">①</span>
+          <span class="funnel-name">유튜브</span>
+          <span class="funnel-desc">콘텐츠 업로드, 신뢰 축적</span>
+          <span class="funnel-time">0 ~ 6개월</span>
+        </div>
+        <div class="funnel-step">
+          <span class="funnel-num">②</span>
+          <span class="funnel-name">무료 배포</span>
+          <span class="funnel-desc">노션 템플릿 / 루틴 PDF 제공</span>
+          <span class="funnel-time">3개월~</span>
+        </div>
+        <div class="funnel-step">
+          <span class="funnel-num">③</span>
+          <span class="funnel-name">커뮤니티</span>
+          <span class="funnel-desc">오픈카카오톡 운영, 팬덤 형성</span>
+          <span class="funnel-time">6개월~</span>
+        </div>
+        <div class="funnel-step">
+          <span class="funnel-num">④</span>
+          <span class="funnel-name">강의 예고</span>
+          <span class="funnel-desc">"ADHD와 함께 잘 사는 법" 강의 티징</span>
+          <span class="funnel-time">7만 구독~</span>
+        </div>
+        <div class="funnel-step">
+          <span class="funnel-num">⑤</span>
+          <span class="funnel-name">강의 론칭</span>
+          <span class="funnel-desc">유료 강의 10만원대 — ADHD 맞춤 루틴 설계 워크숍</span>
+          <span class="funnel-time">10만 달성 후</span>
+        </div>
+        <div class="funnel-step">
+          <span class="funnel-num">⑥</span>
+          <span class="funnel-name">코칭 연결</span>
+          <span class="funnel-desc">1:1 코칭 프로그램으로 업셀링</span>
+          <span class="funnel-time">강의 론칭 후</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tip-card">
+      <div class="tip-label">전문가 조언</div>
+      <p>
+        조회수를 쫓는 채널은 1만을 넘기 어렵고,<br>
+        <strong>세계관을 파는 채널만이 10만 이후에도 성장합니다.</strong><br>
+        지금 당장 필요한 건 더 많은 영상이 아니라,
+        시청자가 <strong>"이 채널은 나를 위한 채널"</strong>이라고 느끼게 만드는
+        단 하나의 일관된 메시지입니다.
+      </p>
+    </div>
+  </section>
+
+</div><!-- /page -->
+
+<script>
+  const sectionIds = ['cover','step1','step2','step3','step4'];
+
+  function setActiveUI(id) {
+    // top menu
+    document.querySelectorAll('.topmenu-link').forEach(a => {
+      a.classList.toggle('active', a.getAttribute('data-target') === id);
+    });
+
+    // side dots
+    const dots = document.querySelectorAll('.nav-dot');
+    dots.forEach(d => d.classList.remove('active'));
+    const activeDot = document.querySelector(`.nav-dot[data-target="${id}"]`);
+    if (activeDot) activeDot.classList.add('active');
+  }
+
+  function showSection(id) {
+    sectionIds.forEach(secId => {
+      const el = document.getElementById(secId);
+      if (el) el.classList.toggle('active', secId === id);
+    });
+    setActiveUI(id);
+  }
+
+  function initChapterNav() {
+    // Cover TOC 클릭 (cover 내부)
+    document.querySelectorAll('.cover .toc-item').forEach(link => {
+      link.addEventListener('click', e => {
+        const href = link.getAttribute('href') || '';
+        if (!href.startsWith('#')) return;
+        e.preventDefault();
+        showSection(href.slice(1));
+      });
+    });
+
+    // 상단 메뉴 클릭
+    document.querySelectorAll('.topmenu-link').forEach(link => {
+      link.addEventListener('click', e => {
+        e.preventDefault();
+        showSection(link.getAttribute('data-target'));
+      });
+    });
+
+    // 사이드닷 클릭
+    document.querySelectorAll('.nav-dot').forEach(dot => {
+      dot.addEventListener('click', () => {
+        showSection(dot.getAttribute('data-target'));
+      });
+    });
+
+    // 초기 표시: cover
+    showSection('cover');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initChapterNav);
+  } else {
+    initChapterNav();
+  }
+</script>
+</body>
+</html>
