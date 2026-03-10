@@ -132,13 +132,13 @@ export function CreatorWorkspaceModal({
             }
           }}
         >
-          <div className="creator-workspace-modal__panel w-full max-w-[520px] rounded-[32px] border border-white/70 bg-white/95 p-8 text-slate-900 shadow-[0_28px_72px_rgba(15,17,23,0.18)]">
+          <div className="creator-workspace-modal__panel w-full max-w-[680px] rounded-[32px] border border-white/85 bg-white p-8 text-slate-900 shadow-[0_28px_72px_rgba(15,17,23,0.14)]">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
                   크리에이터 워크스페이스
                 </p>
-                <h2 className="mt-3 text-[2rem] leading-tight font-semibold tracking-tight text-slate-950">
+                <h2 className="mt-3 text-[1.62rem] leading-none font-semibold tracking-[-0.03em] text-slate-950 sm:text-[1.82rem] sm:whitespace-nowrap">
                   워크스페이스에서 창작영감을 얻으세요
                 </h2>
                 <p className="mt-3 text-sm leading-6 text-slate-500">
