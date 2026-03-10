@@ -43,7 +43,7 @@ const state = {
 const refs = {};
 let toastTimer = null;
 
-document.addEventListener("DOMContentLoaded", () => {
+function startWorkspaceApp() {
   collectRefs();
   bindGlobalUI();
   boot().catch((error) => {
@@ -51,7 +51,13 @@ document.addEventListener("DOMContentLoaded", () => {
     showAuthGate("Unable to initialize the workspace.");
     showToast(error.message || "Unable to initialize the workspace.", "error");
   });
-});
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", startWorkspaceApp, { once: true });
+} else {
+  startWorkspaceApp();
+}
 
 function collectRefs() {
   refs.boot = document.getElementById("workspace-boot");
