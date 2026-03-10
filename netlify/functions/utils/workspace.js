@@ -1,0 +1,418 @@
+const { createClient } = require("@supabase/supabase-js");
+
+class HttpError extends Error {
+  constructor(statusCode, message, details) {
+    super(message);
+    this.name = "HttpError";
+    this.statusCode = statusCode;
+    this.details = details;
+  }
+}
+
+function json(statusCode, payload) {
+  return {
+    statusCode,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store"
+    },
+    body: JSON.stringify(payload)
+  };
+}
+
+function handleError(error) {
+  console.error(error);
+
+  if (error instanceof HttpError) {
+    return json(error.statusCode, {
+      error: error.message,
+      details: error.details || null
+    });
+  }
+
+  return json(500, {
+    error: error?.message || "Unexpected workspace error."
+  });
+}
+
+function parseBody(event) {
+  if (!event.body) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(event.body);
+  } catch {
+    throw new HttpError(400, "Invalid JSON body.");
+  }
+}
+
+function requireEnv(name) {
+  const value = process.env[name];
+
+  if (!value) {
+    throw new HttpError(500, `Missing environment variable: ${name}`);
+  }
+
+  return value;
+}
+
+function createSupabaseAdmin() {
+  const url = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
+  const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+
+  return createClient(url, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
+}
+
+function getStorageBucket() {
+  return process.env.WORKSPACE_STORAGE_BUCKET || "creator-workspace";
+}
+
+function normalizeRoles(value) {
+  if (Array.isArray(value)) {
+    return value.map(String).filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function getAdminEmails() {
+  return String(process.env.WORKSPACE_ADMIN_EMAILS || "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function getUserFromContext(context) {
+  const user = context?.clientContext?.user;
+
+  if (!user) {
+    throw new HttpError(401, "Authentication required.");
+  }
+
+  const roles = Array.from(
+    new Set([
+      ...normalizeRoles(user.app_metadata?.roles),
+      ...normalizeRoles(user.user_metadata?.roles)
+    ])
+  );
+
+  return {
+    ...user,
+    roles,
+    creatorId: user.app_metadata?.creator_id || user.user_metadata?.creator_id || null,
+    isCompanyAdmin: roles.includes("company_admin"),
+    displayName:
+      user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
+      user.email ||
+      "Workspace user"
+  };
+}
+
+async function maybeSingle(query) {
+  const { data, error } = await query.maybeSingle();
+
+  if (error && error.code !== "PGRST116") {
+    throw error;
+  }
+
+  return data || null;
+}
+
+async function lookupCreatorByEmail(supabase, email) {
+  if (!email) {
+    return null;
+  }
+
+  return maybeSingle(
+    supabase
+      .from("creators")
+      .select("id, name, channel_name, login_email")
+      .ilike("login_email", email.toLowerCase())
+  );
+}
+
+async function fetchAdminCreatorList(supabase) {
+  const { data, error } = await supabase
+    .from("creators")
+    .select("id, name, channel_name")
+    .order("name", { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return data || [];
+}
+
+async function authorizeCreatorAccess({ context, supabase, creatorId }) {
+  if (!creatorId) {
+    throw new HttpError(400, "creatorId is required.");
+  }
+
+  const user = getUserFromContext(context);
+
+  if (user.isCompanyAdmin) {
+    return { user, creatorId };
+  }
+
+  const mappedCreator =
+    user.creatorId ? { id: user.creatorId } : await lookupCreatorByEmail(supabase, user.email);
+  const allowedCreatorId = mappedCreator?.id || null;
+
+  if (!allowedCreatorId) {
+    throw new HttpError(403, "No creator workspace is assigned to this account.");
+  }
+
+  if (allowedCreatorId !== creatorId) {
+    throw new HttpError(403, "You do not have access to this workspace.");
+  }
+
+  return {
+    user: {
+      ...user,
+      creatorId: allowedCreatorId
+    },
+    creatorId: allowedCreatorId
+  };
+}
+
+function sanitizeFileName(fileName = "") {
+  const cleaned = String(fileName)
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  return cleaned || "attachment";
+}
+
+function buildStoragePath(creatorId, fileName) {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const random = Math.random().toString(36).slice(2, 8);
+  return `${creatorId}/${timestamp}-${random}-${sanitizeFileName(fileName)}`;
+}
+
+function storageRef(bucket, path) {
+  return `storage://${bucket}/${path}`;
+}
+
+function parseStorageRef(value) {
+  if (!value || typeof value !== "string") {
+    return null;
+  }
+
+  if (/^https?:\/\//.test(value)) {
+    return {
+      external: true,
+      url: value
+    };
+  }
+
+  const match = /^storage:\/\/([^/]+)\/(.+)$/.exec(value);
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    bucket: match[1],
+    path: match[2]
+  };
+}
+
+async function signMaybeStorageRef(supabase, value, expiresIn = 3600) {
+  const parsed = parseStorageRef(value);
+
+  if (!parsed) {
+    return value || null;
+  }
+
+  if (parsed.external) {
+    return parsed.url;
+  }
+
+  const { data, error } = await supabase.storage
+    .from(parsed.bucket)
+    .createSignedUrl(parsed.path, expiresIn);
+
+  if (error) {
+    console.error(error);
+    return null;
+  }
+
+  return data?.signedUrl || null;
+}
+
+async function loadWorkspaceData(supabase, creatorId) {
+  const creator = await maybeSingle(
+    supabase
+      .from("creators")
+      .select(
+        "id, name, channel_name, channel_concept, join_date, channel_url, total_views, subscribers_gained, created_at, updated_at"
+      )
+      .eq("id", creatorId)
+  );
+
+  if (!creator) {
+    throw new HttpError(404, `Workspace for creator '${creatorId}' was not found.`);
+  }
+
+  const [meetingsResult, contentsResult, milestonesResult, attachmentsResult] =
+    await Promise.all([
+      supabase
+        .from("meetings")
+        .select(
+          "id, creator_id, meeting_type, date, summary, notes, created_by, created_at"
+        )
+        .eq("creator_id", creatorId)
+        .order("date", { ascending: false }),
+      supabase
+        .from("contents")
+        .select(
+          "id, creator_id, title, concept, script, thumbnail_url, status, publish_date, created_at, updated_at"
+        )
+        .eq("creator_id", creatorId)
+        .order("updated_at", { ascending: false }),
+      supabase
+        .from("milestones")
+        .select("id, creator_id, title, description, date, created_at")
+        .eq("creator_id", creatorId)
+        .order("date", { ascending: true }),
+      supabase
+        .from("attachments")
+        .select(
+          "id, creator_id, content_id, meeting_id, title, file_name, file_type, kind, storage_bucket, storage_path, uploaded_by, created_at"
+        )
+        .eq("creator_id", creatorId)
+        .order("created_at", { ascending: false })
+    ]);
+
+  [meetingsResult, contentsResult, milestonesResult, attachmentsResult].forEach((result) => {
+    if (result.error) {
+      throw result.error;
+    }
+  });
+
+  const meetings = meetingsResult.data || [];
+  const contents = contentsResult.data || [];
+  const milestones = milestonesResult.data || [];
+  const attachments = attachmentsResult.data || [];
+  const contentIds = contents.map((item) => item.id);
+
+  let feedback = [];
+
+  if (contentIds.length > 0) {
+    const { data, error } = await supabase
+      .from("feedback")
+      .select("id, content_id, author, author_role, comment, created_at")
+      .in("content_id", contentIds)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      throw error;
+    }
+
+    feedback = data || [];
+  }
+
+  const signedContents = await Promise.all(
+    contents.map(async (item) => ({
+      ...item,
+      thumbnail_signed_url: await signMaybeStorageRef(supabase, item.thumbnail_url)
+    }))
+  );
+
+  const signedAttachments = await Promise.all(
+    attachments.map(async (item) => ({
+      ...item,
+      signed_url: await signMaybeStorageRef(
+        supabase,
+        storageRef(item.storage_bucket, item.storage_path)
+      )
+    }))
+  );
+
+  return {
+    creator,
+    meetings,
+    contents: signedContents,
+    feedback,
+    milestones,
+    attachments: signedAttachments,
+    stats: {
+      videosPublished: contents.filter((item) => item.status === "published").length,
+      totalViews: Number(creator.total_views || 0),
+      subscribersGained: Number(creator.subscribers_gained || 0)
+    }
+  };
+}
+
+async function buildIdentityMapping(supabase, identityUser) {
+  const email = String(identityUser?.email || "")
+    .trim()
+    .toLowerCase();
+  const creator = await lookupCreatorByEmail(supabase, email);
+  const roles = Array.from(
+    new Set(normalizeRoles(identityUser?.app_metadata?.roles))
+  );
+
+  if (getAdminEmails().includes(email)) {
+    roles.push("company_admin");
+  }
+
+  const appMetadata = {
+    ...(identityUser?.app_metadata || {})
+  };
+
+  if (roles.length > 0) {
+    appMetadata.roles = Array.from(new Set(roles));
+  }
+
+  if (creator) {
+    appMetadata.creator_id = creator.id;
+  }
+
+  return {
+    creator,
+    isAdmin: getAdminEmails().includes(email),
+    appMetadata,
+    userMetadata: {
+      ...(identityUser?.user_metadata || {}),
+      creator_name: creator?.name || identityUser?.user_metadata?.creator_name,
+      creator_channel:
+        creator?.channel_name || identityUser?.user_metadata?.creator_channel
+    }
+  };
+}
+
+module.exports = {
+  HttpError,
+  json,
+  handleError,
+  parseBody,
+  createSupabaseAdmin,
+  getStorageBucket,
+  getUserFromContext,
+  lookupCreatorByEmail,
+  fetchAdminCreatorList,
+  authorizeCreatorAccess,
+  buildStoragePath,
+  storageRef,
+  loadWorkspaceData,
+  buildIdentityMapping,
+  maybeSingle
+};

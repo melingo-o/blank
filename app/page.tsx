@@ -5,7 +5,7 @@ import { ServicesSection } from "@/components/services-section"
 import { PortfolioSection } from "@/components/portfolio-section"
 import { IntakeSection } from "@/components/intake-section"
 import { Footer } from "@/components/footer"
-import { createSupabaseServer } from "@/lib/supabase/server"
+import { createClient } from "@supabase/supabase-js"
 
 export default async function HomePage() {
   const hasSupabase =
@@ -16,35 +16,44 @@ export default async function HomePage() {
   let teamMembers = undefined
 
   if (hasSupabase) {
-    const supabase = await createSupabaseServer()
-    const portfolioQuery = await supabase
-      .from("portfolio_items")
-      .select("*")
-      .eq("is_visible", true)
-      .order("order_index", {
-        ascending: true
-      })
+    try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
 
-    const teamQuery = await supabase
-      .from("team_members")
-      .select("*")
-      .order("order_index", {
-        ascending: true
-      })
+      const [portfolioQuery, teamQuery] = await Promise.all([
+        supabase
+          .from("portfolio_items")
+          .select("*")
+          .eq("is_visible", true)
+          .order("order_index", {
+            ascending: true
+          }),
+        supabase
+          .from("team_members")
+          .select("*")
+          .order("order_index", {
+            ascending: true
+          })
+      ])
 
-    if (portfolioQuery.error?.message.includes("is_visible")) {
-      const fallback = await supabase
-        .from("portfolio_items")
-        .select("*")
-        .order("order_index", {
-          ascending: true
-        })
-      portfolioItems = fallback.data ?? undefined
-    } else {
-      portfolioItems = portfolioQuery.data ?? undefined
+      if (portfolioQuery.error?.message?.includes("is_visible")) {
+        const fallback = await supabase
+          .from("portfolio_items")
+          .select("*")
+          .order("order_index", {
+            ascending: true
+          })
+        portfolioItems = fallback.data ?? undefined
+      } else {
+        portfolioItems = portfolioQuery.data ?? undefined
+      }
+
+      teamMembers = teamQuery.data ?? undefined
+    } catch (error) {
+      console.error("Failed to load landing page Supabase data:", error)
     }
-
-    teamMembers = teamQuery.data ?? undefined
   }
 
   return (

@@ -29,13 +29,15 @@ export async function middleware(request: NextRequest) {
     }
   })
 
-  await supabase.auth.getUser()
+  try {
+    await supabase.auth.getUser()
+  } catch (error) {
+    console.error("Supabase auth refresh failed in middleware:", error)
+  }
 
   return response
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"
-  ]
+  matcher: ["/admin/:path*", "/workspace/:path*"]
 }
