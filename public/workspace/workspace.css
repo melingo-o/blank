@@ -4,6 +4,13 @@
     linear-gradient(180deg, #f7f7f4 0%, #f2f3f6 100%);
 }
 
+#workspace-app .hidden,
+.workspace-modal.hidden,
+#workspace-layout.hidden,
+#auth-gate.hidden {
+  display: none !important;
+}
+
 .workspace-surface {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.9)),

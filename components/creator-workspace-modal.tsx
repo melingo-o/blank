@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation"
 import { X } from "lucide-react"
 import { createSupabaseBrowser } from "@/lib/supabase/client"
 
+const WORKSPACE_SESSION_HANDOFF_KEY = "workspaceSessionHandoff"
+
 type CreatorWorkspaceModalProps = {
   buttonClassName: string
   buttonLabel?: string
@@ -74,6 +76,17 @@ export function CreatorWorkspaceModal({
       if (error) {
         throw error
       }
+
+      window.sessionStorage.setItem(
+        WORKSPACE_SESSION_HANDOFF_KEY,
+        JSON.stringify({
+          accessToken: payload.accessToken,
+          refreshToken: payload.refreshToken,
+          expiresAt: payload.expiresAt,
+          creatorId: payload.creatorId,
+          redirectTo: payload.redirectTo
+        })
+      )
 
       setIsOpen(false)
       setLoginId("")

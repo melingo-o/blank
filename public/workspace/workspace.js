@@ -26,6 +26,8 @@ const ATTACHMENT_LABELS = {
   reference: "Reference added"
 };
 
+const WORKSPACE_SESSION_HANDOFF_KEY = "workspaceSessionHandoff";
+
 const state = {
   config: null,
   supabase: null,
@@ -123,7 +125,51 @@ async function initSession() {
     return;
   }
 
+  const handoffSession = await consumeSessionHandoff();
+
+  if (handoffSession) {
+    await handleAuthenticatedSession();
+    return;
+  }
+
   showAuthGate();
+}
+
+async function consumeSessionHandoff() {
+  if (!window.sessionStorage) {
+    return null;
+  }
+
+  const raw = window.sessionStorage.getItem(WORKSPACE_SESSION_HANDOFF_KEY);
+
+  if (!raw) {
+    return null;
+  }
+
+  window.sessionStorage.removeItem(WORKSPACE_SESSION_HANDOFF_KEY);
+
+  try {
+    const payload = JSON.parse(raw);
+
+    if (!payload?.accessToken || !payload?.refreshToken) {
+      return null;
+    }
+
+    const { data, error } = await state.supabase.auth.setSession({
+      access_token: payload.accessToken,
+      refresh_token: payload.refreshToken
+    });
+
+    if (error) {
+      console.error(error);
+      return null;
+    }
+
+    return data?.session || null;
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
 }
 
 async function handleWorkspaceLogin() {
