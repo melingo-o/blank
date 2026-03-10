@@ -8,7 +8,9 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
 import { createSupabaseBrowser } from "@/lib/supabase/client"
 import { defaultPortfolioItems, defaultTeamMembers } from "@/lib/seed-data"
+import CreatorWorkspaceManager from "./CreatorWorkspaceManager"
 import type {
+  CreatorWorkspaceAccount,
   PortfolioItem,
   TeamMember,
   Submission
@@ -47,20 +49,22 @@ type PortfolioValues = z.infer<typeof portfolioSchema>
 type TeamValues = z.infer<typeof teamSchema>
 
 type AdminDashboardProps = {
+  initialCreators: CreatorWorkspaceAccount[]
   initialPortfolio: PortfolioItem[]
   initialTeam: TeamMember[]
   initialSubmissions: Submission[]
 }
 
 export default function AdminDashboard({
+  initialCreators,
   initialPortfolio,
   initialTeam,
   initialSubmissions
 }: AdminDashboardProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<
-    "portfolio" | "team" | "submissions"
-  >("portfolio")
+    "creators" | "portfolio" | "team" | "submissions"
+  >("creators")
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>(initialPortfolio)
   const [team, setTeam] = useState<TeamMember[]>(initialTeam)
   const [submissions, setSubmissions] =
@@ -451,6 +455,7 @@ export default function AdminDashboard({
       <main className="mx-auto w-full max-w-6xl px-6 py-12">
         <div className="flex flex-wrap items-center gap-3">
           {[
+            { key: "creators", label: "Creators" },
             { key: "portfolio", label: "Portfolio" },
             { key: "team", label: "Team" },
             { key: "submissions", label: "Submissions" }
@@ -459,7 +464,9 @@ export default function AdminDashboard({
               key={tab.key}
               type="button"
               onClick={() =>
-                setActiveTab(tab.key as "portfolio" | "team" | "submissions")
+                setActiveTab(
+                  tab.key as "creators" | "portfolio" | "team" | "submissions"
+                )
               }
               className={`px-6 py-3 text-xs uppercase tracking-[0.3em] transition ${
                 activeTab === tab.key
@@ -471,6 +478,10 @@ export default function AdminDashboard({
             </button>
           ))}
         </div>
+
+        {activeTab === "creators" && (
+          <CreatorWorkspaceManager initialCreators={initialCreators} />
+        )}
 
         {activeTab === "portfolio" && (
           <section className="mt-10 space-y-10">

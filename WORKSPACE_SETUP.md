@@ -4,6 +4,9 @@
 
 Run `supabase/workspace-schema.sql` in the Supabase SQL editor.
 
+If you already ran it before, run it again once so the new
+`creators.auth_user_id` column is added.
+
 The existing `supabase/schema.sql` should already be applied for:
 
 - `admin_users`
@@ -100,20 +103,31 @@ WORKSPACE_MASTER_LOGIN_ID=admin
 WORKSPACE_MASTER_EMAIL=admin@example.com
 ```
 
-## 6. Access model
+## 6. Admin workflow
+
+After signing in at `/admin`, use the new `Creators` tab to:
+
+- generate a creator login ID
+- create the linked Supabase Auth account
+- set the creator's initial password
+- open the creator workspace directly
+- reset a creator password later
+
+## 7. Access model
 
 - Creator users can only open their own workspace.
 - Admin users can open every creator workspace and switch creators from the sidebar.
 - All workspace reads/writes still go through Netlify Functions, which enforce the `creator_id` permission check before touching Supabase.
 
-## 7. Routes and files
+## 8. Routes and files
 
 - Public CTA: `Creator Workspace` button in the hero section
 - Admin login: `/admin`
+- Admin creator issuance: `/admin/dashboard` -> `Creators` tab
 - Workspace routes: `/workspace` and `/workspace/[creatorId]`
 - Static UI modules: `/public/workspace/*` and `/public/components/*`
 
-## 8. Attachment flow
+## 9. Attachment flow
 
 1. Browser requests a signed upload token from `/.netlify/functions/workspace-upload`
 2. Browser uploads the file directly to Supabase Storage with the signed token

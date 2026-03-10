@@ -37,3 +37,18 @@ export type Submission = {
   status: "new" | "reviewed" | "archived"
   created_at: string
 }
+
+export type CreatorWorkspaceAccount = {
+  id: string
+  auth_user_id: string | null
+  name: string
+  channel_name: string
+  channel_concept: string | null
+  join_date: string
+  channel_url: string | null
+  login_email: string | null
+  total_views: number
+  subscribers_gained: number
+  created_at: string
+  updated_at: string
+}

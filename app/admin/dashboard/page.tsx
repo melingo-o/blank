@@ -5,10 +5,14 @@ export default async function AdminDashboardPage() {
   const { supabase } = await requireAdmin()
 
   const [
+    { data: creators },
     { data: portfolioItems },
     { data: teamMembers },
     { data: submissions }
   ] = await Promise.all([
+    supabase.from("creators").select("*").order("created_at", {
+      ascending: false
+    }),
     supabase.from("portfolio_items").select("*").order("order_index", {
       ascending: true
     }),
@@ -22,6 +26,7 @@ export default async function AdminDashboardPage() {
 
   return (
     <AdminDashboard
+      initialCreators={creators ?? []}
       initialPortfolio={portfolioItems ?? []}
       initialTeam={teamMembers ?? []}
       initialSubmissions={submissions ?? []}

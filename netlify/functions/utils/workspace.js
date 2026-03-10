@@ -154,7 +154,7 @@ async function lookupCreatorByEmail(supabase, email) {
   return maybeSingle(
     supabase
       .from("creators")
-      .select("id, name, channel_name, login_email")
+      .select("id, auth_user_id, name, channel_name, login_email")
       .ilike("login_email", normalizedEmail)
       .limit(1)
   );
@@ -170,8 +170,22 @@ async function lookupCreatorById(supabase, creatorId) {
   return maybeSingle(
     supabase
       .from("creators")
-      .select("id, name, channel_name, login_email")
+      .select("id, auth_user_id, name, channel_name, login_email")
       .eq("id", normalizedCreatorId)
+      .limit(1)
+  );
+}
+
+async function lookupCreatorByUserId(supabase, userId) {
+  if (!userId) {
+    return null;
+  }
+
+  return maybeSingle(
+    supabase
+      .from("creators")
+      .select("id, auth_user_id, name, channel_name, login_email")
+      .eq("auth_user_id", userId)
       .limit(1)
   );
 }
@@ -295,7 +309,13 @@ async function getUserFromRequest(event, supabase) {
 
   const email = normalizeLoginId(user.email);
   const [creator, admin] = await Promise.all([
-    lookupCreatorByEmail(supabase, email),
+    lookupCreatorByUserId(supabase, user.id).then(async (creatorByUserId) => {
+      if (creatorByUserId) {
+        return creatorByUserId;
+      }
+
+      return lookupCreatorByEmail(supabase, email);
+    }),
     lookupAdminByUser(supabase, user.id, email, {
       allowEnvFallback: true
     })
@@ -636,6 +656,7 @@ module.exports = {
   getUserFromRequest,
   lookupCreatorByEmail,
   lookupCreatorById,
+  lookupCreatorByUserId,
   fetchAdminCreatorList,
   authorizeCreatorAccess,
   resolveLoginIdentifier,

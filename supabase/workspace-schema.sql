@@ -25,6 +25,7 @@ $$ language plpgsql;
 
 create table if not exists creators (
   id text primary key,
+  auth_user_id uuid unique references auth.users(id) on delete set null,
   name text not null,
   channel_name text not null,
   channel_concept text,
@@ -36,6 +37,8 @@ create table if not exists creators (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table creators add column if not exists auth_user_id uuid unique references auth.users(id) on delete set null;
 
 create table if not exists meetings (
   id uuid primary key default gen_random_uuid(),
@@ -99,6 +102,7 @@ create index if not exists idx_contents_creator_id on contents (creator_id, stat
 create index if not exists idx_feedback_content_id on feedback (content_id, created_at desc);
 create index if not exists idx_milestones_creator_id on milestones (creator_id, date asc);
 create index if not exists idx_attachments_creator_id on attachments (creator_id, created_at desc);
+create index if not exists idx_creators_auth_user_id on creators (auth_user_id);
 
 drop trigger if exists creators_workspace_updated_at on creators;
 create trigger creators_workspace_updated_at
