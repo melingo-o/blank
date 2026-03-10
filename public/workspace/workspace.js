@@ -54,6 +54,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function collectRefs() {
+  refs.boot = document.getElementById("workspace-boot");
   refs.authGate = document.getElementById("auth-gate");
   refs.layout = document.getElementById("workspace-layout");
   refs.sidebar = document.getElementById("workspace-sidebar");
@@ -99,6 +100,7 @@ function bindGlobalUI() {
 }
 
 async function boot() {
+  showBootShell();
   await loadConfig();
   await initSession();
 }
@@ -177,13 +179,13 @@ async function handleWorkspaceLogin() {
   const password = refs.authPassword?.value || "";
 
   if (!loginId || !password) {
-    showToast("Enter your assigned ID and password.", "error");
+    showToast("아이디와 비밀번호를 입력해 주세요.", "error");
     return;
   }
 
   if (refs.authSubmit instanceof HTMLButtonElement) {
     refs.authSubmit.disabled = true;
-    refs.authSubmit.textContent = "Signing in...";
+    refs.authSubmit.textContent = "로그인 중...";
   }
 
   try {
@@ -221,14 +223,14 @@ async function handleWorkspaceLogin() {
     }
 
     await initSession();
-    showToast("Signed in.", "success");
+    showToast("워크스페이스에 접속했습니다.", "success");
   } catch (error) {
     console.error(error);
     showToast(error.message || "Unable to sign in.", "error");
   } finally {
     if (refs.authSubmit instanceof HTMLButtonElement) {
       refs.authSubmit.disabled = false;
-      refs.authSubmit.textContent = "Enter workspace";
+      refs.authSubmit.textContent = "워크스페이스 열기";
     }
   }
 }
@@ -630,7 +632,7 @@ function renderMeetings() {
 function renderLoadingShell() {
   refs.notice.innerHTML = `
     <div class="rounded-[24px] border border-slate-200 bg-white px-4 py-4 text-sm text-slate-500 shadow-[0_12px_24px_rgba(15,23,42,0.05)]">
-      Loading workspace...
+      워크스페이스를 불러오는 중입니다...
     </div>
   `;
 }
@@ -1045,6 +1047,7 @@ function closeModal() {
 }
 
 function showAuthGate(message = "") {
+  refs.boot?.classList.add("hidden");
   refs.authGate?.classList.remove("hidden");
   refs.layout?.classList.add("hidden");
 
@@ -1052,15 +1055,22 @@ function showAuthGate(message = "") {
   if (note) {
     note.textContent =
       message ||
-      "Sign in with the creator ID and password that the team assigned to you.";
+      "발급받은 아이디와 비밀번호를 입력해 주세요.";
   }
 
   refs.authLoginId?.focus();
 }
 
 function showLayout() {
+  refs.boot?.classList.add("hidden");
   refs.authGate?.classList.add("hidden");
   refs.layout?.classList.remove("hidden");
+}
+
+function showBootShell() {
+  refs.boot?.classList.remove("hidden");
+  refs.authGate?.classList.add("hidden");
+  refs.layout?.classList.add("hidden");
 }
 
 function clearWorkspace() {

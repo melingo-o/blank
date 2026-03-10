@@ -23,16 +23,36 @@ export function WorkspaceShell() {
       </Script>
 
       <div id="workspace-app" className="min-h-screen">
-        <section id="auth-gate" className="flex min-h-screen items-center justify-center px-4 py-10">
+        <section
+          id="workspace-boot"
+          className="flex min-h-screen items-center justify-center px-4 py-10"
+        >
           <div className="workspace-surface w-full max-w-xl rounded-[32px] border border-slate-200 bg-white p-8 shadow-[0_24px_44px_rgba(15,23,42,0.08)]">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-              Creator Incubation Workspace
+              Creator Workspace
             </p>
             <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-950">
-              Private planning board for creators and the company team.
+              워크스페이스를 준비하고 있습니다.
+            </h1>
+            <p className="mt-4 text-sm leading-7 text-slate-500">
+              로그인 정보를 확인한 뒤 바로 워크스페이스를 불러옵니다.
+            </p>
+          </div>
+        </section>
+
+        <section
+          id="auth-gate"
+          className="hidden min-h-screen items-center justify-center px-4 py-10"
+        >
+          <div className="workspace-surface w-full max-w-xl rounded-[32px] border border-slate-200 bg-white p-8 shadow-[0_24px_44px_rgba(15,23,42,0.08)]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+              Creator Workspace
+            </p>
+            <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-950">
+              워크스페이스 로그인
             </h1>
             <p className="mt-4 text-sm leading-7 text-slate-500" data-auth-note>
-              Sign in with the creator ID and password that the team assigned to you.
+              발급받은 아이디와 비밀번호를 입력해 주세요.
             </p>
             <form className="mt-8 space-y-4" data-workspace-auth-form>
               <div>
@@ -40,7 +60,7 @@ export function WorkspaceShell() {
                   htmlFor="workspace-login-id"
                   className="block text-sm font-medium text-slate-700"
                 >
-                  Creator ID
+                  ID
                 </label>
                 <input
                   id="workspace-login-id"
@@ -55,13 +75,13 @@ export function WorkspaceShell() {
                   htmlFor="workspace-password"
                   className="block text-sm font-medium text-slate-700"
                 >
-                  Password
+                  PW
                 </label>
                 <input
                   id="workspace-password"
                   type="password"
                   autoComplete="current-password"
-                  placeholder="Enter your password"
+                  placeholder="비밀번호 입력"
                   className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white"
                 />
               </div>
@@ -70,7 +90,7 @@ export function WorkspaceShell() {
                 data-workspace-auth-submit
                 className="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
               >
-                Enter workspace
+                워크스페이스 열기
               </button>
             </form>
             <div className="mt-4 flex flex-wrap gap-3">
