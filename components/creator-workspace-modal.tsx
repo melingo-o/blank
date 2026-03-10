@@ -1,6 +1,7 @@
 "use client"
 
 import { type FormEvent, useEffect, useState } from "react"
+import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { X } from "lucide-react"
 import { createSupabaseBrowser } from "@/lib/supabase/client"
@@ -17,11 +18,16 @@ export function CreatorWorkspaceModal({
   buttonLabel = "Creator Workspace"
 }: CreatorWorkspaceModalProps) {
   const router = useRouter()
+  const [isMounted, setIsMounted] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const [loginId, setLoginId] = useState("")
   const [password, setPassword] = useState("")
   const [message, setMessage] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   useEffect(() => {
     if (!isOpen) {
@@ -35,6 +41,7 @@ export function CreatorWorkspaceModal({
     }
 
     document.addEventListener("keydown", handleKeyDown)
+
     const scrollbarCompensation = Math.max(
       window.innerWidth - document.documentElement.clientWidth,
       0
@@ -113,6 +120,94 @@ export function CreatorWorkspaceModal({
     }
   }
 
+  const modalMarkup =
+    isMounted && isOpen
+      ? createPortal(
+          <div
+            className="creator-workspace-modal fixed inset-0 z-[70] flex items-center justify-center px-4 py-8"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) {
+                setIsOpen(false)
+              }
+            }}
+          >
+            <div className="creator-workspace-modal__panel w-full max-w-[680px] rounded-[32px] border border-white/85 bg-white p-8 text-slate-900 shadow-[0_28px_72px_rgba(15,17,23,0.14)]">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
+                    크리에이터 워크스페이스
+                  </p>
+                  <h2 className="mt-3 text-[1.62rem] leading-none font-semibold tracking-[-0.03em] text-slate-950 sm:text-[1.82rem] sm:whitespace-nowrap">
+                    워크스페이스에서 창작영감을 얻으세요
+                  </h2>
+                  <p className="mt-3 text-sm leading-6 text-slate-500">
+                    발급받은 아이디와 비밀번호를 입력해 주세요.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                  aria-label="Close creator workspace login"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
+                <div className="grid grid-cols-[56px_minmax(0,1fr)] items-center gap-4">
+                  <label
+                    htmlFor="creator-workspace-login-id"
+                    className="text-sm font-semibold tracking-[0.22em] text-slate-500"
+                  >
+                    ID
+                  </label>
+                  <input
+                    id="creator-workspace-login-id"
+                    type="text"
+                    autoComplete="username"
+                    value={loginId}
+                    onChange={(event) => setLoginId(event.target.value)}
+                    placeholder="chaehee"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white"
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-[56px_minmax(0,1fr)] items-center gap-4">
+                  <label
+                    htmlFor="creator-workspace-password"
+                    className="text-sm font-semibold tracking-[0.22em] text-slate-500"
+                  >
+                    PW
+                  </label>
+                  <input
+                    id="creator-workspace-password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="비밀번호 입력"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white"
+                    required
+                  />
+                </div>
+
+                {message && <p className="text-sm text-rose-600">{message}</p>}
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="inline-flex w-full items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                >
+                  {isSubmitting ? "로그인 중..." : "워크스페이스 열기"}
+                </button>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )
+      : null
+
   return (
     <>
       <button
@@ -122,90 +217,7 @@ export function CreatorWorkspaceModal({
       >
         {buttonLabel}
       </button>
-
-      {isOpen && (
-        <div
-          className="creator-workspace-modal fixed inset-0 z-[70] flex items-center justify-center px-4 py-8"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              setIsOpen(false)
-            }
-          }}
-        >
-          <div className="creator-workspace-modal__panel w-full max-w-[680px] rounded-[32px] border border-white/85 bg-white p-8 text-slate-900 shadow-[0_28px_72px_rgba(15,17,23,0.14)]">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
-                  크리에이터 워크스페이스
-                </p>
-                <h2 className="mt-3 text-[1.62rem] leading-none font-semibold tracking-[-0.03em] text-slate-950 sm:text-[1.82rem] sm:whitespace-nowrap">
-                  워크스페이스에서 창작영감을 얻으세요
-                </h2>
-                <p className="mt-3 text-sm leading-6 text-slate-500">
-                  발급받은 아이디와 비밀번호를 입력해 주세요.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
-                aria-label="Close creator workspace login"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
-              <div className="grid grid-cols-[56px_minmax(0,1fr)] items-center gap-4">
-                <label
-                  htmlFor="creator-workspace-login-id"
-                  className="text-sm font-semibold tracking-[0.22em] text-slate-500"
-                >
-                  ID
-                </label>
-                <input
-                  id="creator-workspace-login-id"
-                  type="text"
-                  autoComplete="username"
-                  value={loginId}
-                  onChange={(event) => setLoginId(event.target.value)}
-                  placeholder="chaehee"
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white"
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-[56px_minmax(0,1fr)] items-center gap-4">
-                <label
-                  htmlFor="creator-workspace-password"
-                  className="text-sm font-semibold tracking-[0.22em] text-slate-500"
-                >
-                  PW
-                </label>
-                <input
-                  id="creator-workspace-password"
-                  type="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="비밀번호 입력"
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white"
-                  required
-                />
-              </div>
-
-              {message && <p className="text-sm text-rose-600">{message}</p>}
-
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="inline-flex w-full items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-              >
-                {isSubmitting ? "로그인 중..." : "워크스페이스 열기"}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      {modalMarkup}
     </>
   )
 }
