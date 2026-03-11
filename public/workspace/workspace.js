@@ -1,13 +1,13 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-import { renderChannelPlanPanel } from "/components/channel-plan.js?v=20260311c";
-import { renderSidebar } from "/components/sidebar.js?v=20260311c";
-import { renderKanban } from "/components/kanban.js?v=20260311c";
+import { renderChannelPlanPanel } from "/components/channel-plan.js?v=20260311d";
+import { renderSidebar } from "/components/sidebar.js?v=20260311d";
+import { renderKanban } from "/components/kanban.js?v=20260311d";
 import {
   renderFeedbackPanel,
   renderContentDetail,
   renderContentPartCard,
   renderContentPartEditor
-} from "/components/comments.js?v=20260311c";
+} from "/components/comments.js?v=20260311d";
 import {
   CONTENT_PLAN_STAGES,
   CONTENT_STATUS_OPTIONS,
@@ -15,8 +15,8 @@ import {
   createDefaultPlanSections,
   createEmptyPart,
   hydrateContents
-} from "/components/content-plan.js?v=20260311c";
-import { renderTimeline } from "/components/timeline.js?v=20260311c";
+} from "/components/content-plan.js?v=20260311d";
+import { renderTimeline } from "/components/timeline.js?v=20260311d";
 
 const TABS = [
   { id: "overview", label: "개요" },

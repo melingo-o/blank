@@ -2,7 +2,7 @@ const TAB_LABELS = {
   overview: "Overview",
   strategy: "Channel Plan",
   meetings: "Meetings",
-  pipeline: "콘텐츠기획",
+  pipeline: "Contents",
   feedback: "Feedback",
   timeline: "Timeline"
 };
