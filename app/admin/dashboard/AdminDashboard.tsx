@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
 import { createSupabaseBrowser } from "@/lib/supabase/client"
 import { defaultPortfolioItems, defaultTeamMembers } from "@/lib/seed-data"
+import CreatorRegistryManager from "./CreatorRegistryManager"
 import CreatorWorkspaceManager from "./CreatorWorkspaceManager"
 import type {
   CreatorWorkspaceAccount,
@@ -47,6 +48,10 @@ const teamSchema = z.object({
 
 type PortfolioValues = z.infer<typeof portfolioSchema>
 type TeamValues = z.infer<typeof teamSchema>
+type CreatorAdminApiOptions = {
+  method?: "GET" | "POST"
+  body?: Record<string, unknown>
+}
 
 type AdminDashboardProps = {
   initialCreators: CreatorWorkspaceAccount[]
@@ -63,12 +68,21 @@ export default function AdminDashboard({
 }: AdminDashboardProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<
-    "creators" | "portfolio" | "team" | "submissions"
+    "creators" | "accounts" | "portfolio" | "team" | "submissions"
   >("creators")
+  const [creators, setCreators] =
+    useState<CreatorWorkspaceAccount[]>(initialCreators)
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>(initialPortfolio)
   const [team, setTeam] = useState<TeamMember[]>(initialTeam)
   const [submissions, setSubmissions] =
     useState<Submission[]>(initialSubmissions)
+  const [selectedCreatorIdForAccount, setSelectedCreatorIdForAccount] =
+    useState<string | null>(
+      initialCreators.find((creator) => !(creator.auth_user_id || creator.login_email))
+        ?.id ||
+        initialCreators[0]?.id ||
+        null
+    )
   const [selectedPortfolio, setSelectedPortfolio] =
     useState<PortfolioItem | null>(null)
   const [selectedTeam, setSelectedTeam] = useState<TeamMember | null>(null)
@@ -95,6 +109,34 @@ export default function AdminDashboard({
     Record<string, number>
   >({})
   const supabase = useMemo(() => createSupabaseBrowser(), [])
+  const callAdminCreatorApi = useCallback(
+    async (options?: CreatorAdminApiOptions) => {
+      const {
+        data: { session }
+      } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        throw new Error("Admin session expired. Sign in again.")
+      }
+
+      const response = await fetch("/.netlify/functions/workspace-admin-creators", {
+        method: options?.method || "GET",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json"
+        },
+        body: options?.body ? JSON.stringify(options.body) : undefined
+      })
+      const payload = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Request failed.")
+      }
+
+      return payload
+    },
+    [supabase]
+  )
   const sortedPortfolio = useMemo(
     () =>
       [...portfolio].sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)),
@@ -129,6 +171,11 @@ export default function AdminDashboard({
     }
   })
 
+  const refreshCreators = useCallback(async () => {
+    const payload = await callAdminCreatorApi()
+    setCreators(payload.creators || [])
+  }, [callAdminCreatorApi])
+
   const refreshPortfolio = useCallback(async () => {
     const { data } = await supabase
       .from("portfolio_items")
@@ -152,6 +199,21 @@ export default function AdminDashboard({
       .order("created_at", { ascending: false })
     if (data) setSubmissions(data)
   }, [supabase])
+
+  const handleOpenAccountSetup = useCallback((creatorId: string) => {
+    setSelectedCreatorIdForAccount(creatorId)
+    setActiveTab("accounts")
+  }, [])
+
+  const handleCreatorsChanged = useCallback(
+    async (preferredCreatorId?: string | null) => {
+      await refreshCreators()
+      if (preferredCreatorId) {
+        setSelectedCreatorIdForAccount(preferredCreatorId)
+      }
+    },
+    [refreshCreators]
+  )
 
   useEffect(() => {
     refreshPortfolio()
@@ -205,6 +267,26 @@ export default function AdminDashboard({
     setEditingPortfolioId(null)
     setEditingTeamId(null)
   }, [activeTab])
+
+  useEffect(() => {
+    if (creators.length === 0) {
+      setSelectedCreatorIdForAccount(null)
+      return
+    }
+
+    setSelectedCreatorIdForAccount((currentId) => {
+      if (currentId && creators.some((creator) => creator.id === currentId)) {
+        return currentId
+      }
+
+      return (
+        creators.find((creator) => !(creator.auth_user_id || creator.login_email))
+          ?.id ||
+        creators[0]?.id ||
+        null
+      )
+    })
+  }, [creators])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -455,7 +537,8 @@ export default function AdminDashboard({
       <main className="mx-auto w-full max-w-6xl px-6 py-12">
         <div className="flex flex-wrap items-center gap-3">
           {[
-            { key: "creators", label: "Creators" },
+            { key: "creators", label: "크리에이터" },
+            { key: "accounts", label: "계정생성" },
             { key: "portfolio", label: "Portfolio" },
             { key: "team", label: "Team" },
             { key: "submissions", label: "Submissions" }
@@ -465,7 +548,12 @@ export default function AdminDashboard({
               type="button"
               onClick={() =>
                 setActiveTab(
-                  tab.key as "creators" | "portfolio" | "team" | "submissions"
+                  tab.key as
+                    | "creators"
+                    | "accounts"
+                    | "portfolio"
+                    | "team"
+                    | "submissions"
                 )
               }
               className={`px-6 py-3 text-xs uppercase tracking-[0.3em] transition ${
@@ -480,7 +568,23 @@ export default function AdminDashboard({
         </div>
 
         {activeTab === "creators" && (
-          <CreatorWorkspaceManager initialCreators={initialCreators} />
+          <CreatorRegistryManager
+            creators={creators}
+            callAdminCreatorApi={callAdminCreatorApi}
+            onRequestAccountSetup={handleOpenAccountSetup}
+            onCreatorsChanged={handleCreatorsChanged}
+          />
+        )}
+
+        {activeTab === "accounts" && (
+          <CreatorWorkspaceManager
+            creators={creators}
+            selectedCreatorId={selectedCreatorIdForAccount}
+            onSelectCreator={setSelectedCreatorIdForAccount}
+            onRefreshCreators={refreshCreators}
+            onCreatorsChanged={handleCreatorsChanged}
+            callAdminCreatorApi={callAdminCreatorApi}
+          />
         )}
 
         {activeTab === "portfolio" && (

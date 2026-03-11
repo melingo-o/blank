@@ -133,7 +133,7 @@ export function TeamSection({ initialMembers }: TeamSectionProps) {
           <div className="relative h-64 w-full">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80"
+              src="/team-snapshot.png"
               alt="Team mood"
               className="h-full w-full object-cover"
               loading="lazy"

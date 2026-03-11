@@ -8,6 +8,9 @@ const {
   maybeSingle
 } = require("./utils/workspace");
 
+const CREATOR_SELECT_FIELDS =
+  "id, auth_user_id, name, channel_name, channel_concept, join_date, channel_url, login_email, total_views, subscribers_gained, created_at, updated_at";
+
 function sanitizeCreatorId(value = "") {
   const normalized = String(value)
     .trim()
@@ -38,9 +41,7 @@ async function requireCompanyAdmin(event, supabase) {
 async function listCreators(supabase) {
   const { data, error } = await supabase
     .from("creators")
-    .select(
-      "id, auth_user_id, name, channel_name, channel_concept, join_date, channel_url, login_email, total_views, subscribers_gained, created_at, updated_at"
-    )
+    .select(CREATOR_SELECT_FIELDS)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -48,6 +49,86 @@ async function listCreators(supabase) {
   }
 
   return data || [];
+}
+
+async function findCreatorById(supabase, creatorId) {
+  return maybeSingle(
+    supabase.from("creators").select(CREATOR_SELECT_FIELDS).eq("id", creatorId).limit(1)
+  );
+}
+
+async function ensureCreatorIdAvailable(supabase, creatorId) {
+  const existingCreator = await maybeSingle(
+    supabase.from("creators").select("id").eq("id", creatorId).limit(1)
+  );
+
+  if (existingCreator) {
+    throw new HttpError(409, "This creator ID is already in use.");
+  }
+}
+
+async function ensureLoginEmailAvailable(supabase, loginEmail, creatorIdToExclude = null) {
+  if (!loginEmail) {
+    return;
+  }
+
+  let query = supabase.from("creators").select("id").ilike("login_email", loginEmail).limit(1);
+
+  if (creatorIdToExclude) {
+    query = query.neq("id", creatorIdToExclude);
+  }
+
+  const existingEmail = await maybeSingle(query);
+
+  if (existingEmail) {
+    throw new HttpError(409, "This login email is already assigned.");
+  }
+}
+
+function buildCreatorProfilePayload(payload, overrides = {}) {
+  return {
+    id: sanitizeCreatorId(payload.creatorId || payload.id),
+    auth_user_id: overrides.auth_user_id || null,
+    name: String(payload.name || "").trim(),
+    channel_name: String(payload.channelName || payload.channel_name || "").trim(),
+    channel_concept: String(payload.channelConcept || payload.channel_concept || "").trim() || null,
+    join_date: String(payload.joinDate || payload.join_date || ""),
+    channel_url: String(payload.channelUrl || payload.channel_url || "").trim() || null,
+    login_email: overrides.login_email === undefined ? null : overrides.login_email,
+    total_views: Number(payload.totalViews || payload.total_views || 0),
+    subscribers_gained: Number(payload.subscribersGained || payload.subscribers_gained || 0)
+  };
+}
+
+async function createCreatorProfile(supabase, payload) {
+  const creatorId = sanitizeCreatorId(payload.creatorId);
+
+  if (!creatorId) {
+    throw new HttpError(400, "Creator ID is required.");
+  }
+
+  if (!payload.name || !payload.channelName || !payload.joinDate) {
+    throw new HttpError(400, "Missing required creator fields.");
+  }
+
+  await ensureCreatorIdAvailable(supabase, creatorId);
+
+  const insertPayload = buildCreatorProfilePayload(payload, {
+    auth_user_id: null,
+    login_email: null
+  });
+
+  const { data, error } = await supabase
+    .from("creators")
+    .insert(insertPayload)
+    .select(CREATOR_SELECT_FIELDS)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
 }
 
 async function createCreator(supabase, payload) {
@@ -63,25 +144,8 @@ async function createCreator(supabase, payload) {
     throw new HttpError(400, "Missing required creator fields.");
   }
 
-  const existingCreator = await maybeSingle(
-    supabase.from("creators").select("id").eq("id", creatorId).limit(1)
-  );
-
-  if (existingCreator) {
-    throw new HttpError(409, "This creator ID is already in use.");
-  }
-
-  const existingEmail = await maybeSingle(
-    supabase
-      .from("creators")
-      .select("id")
-      .ilike("login_email", loginEmail)
-      .limit(1)
-  );
-
-  if (existingEmail) {
-    throw new HttpError(409, "This login email is already assigned.");
-  }
+  await ensureCreatorIdAvailable(supabase, creatorId);
+  await ensureLoginEmailAvailable(supabase, loginEmail);
 
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email: loginEmail,
@@ -98,25 +162,72 @@ async function createCreator(supabase, payload) {
   }
 
   try {
-    const insertPayload = {
-      id: creatorId,
+    const insertPayload = buildCreatorProfilePayload(payload, {
       auth_user_id: authData.user.id,
-      name: String(payload.name).trim(),
-      channel_name: String(payload.channelName).trim(),
-      channel_concept: String(payload.channelConcept || "").trim() || null,
-      join_date: String(payload.joinDate),
-      channel_url: String(payload.channelUrl || "").trim() || null,
-      login_email: loginEmail,
-      total_views: Number(payload.totalViews || 0),
-      subscribers_gained: Number(payload.subscribersGained || 0)
-    };
+      login_email: loginEmail
+    });
 
     const { data, error } = await supabase
       .from("creators")
       .insert(insertPayload)
-      .select(
-        "id, auth_user_id, name, channel_name, channel_concept, join_date, channel_url, login_email, total_views, subscribers_gained, created_at, updated_at"
-      )
+      .select(CREATOR_SELECT_FIELDS)
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    await supabase.auth.admin.deleteUser(authData.user.id).catch(() => null);
+    throw error;
+  }
+}
+
+async function issueCreatorAccount(supabase, payload) {
+  const creatorId = sanitizeCreatorId(payload.creatorId);
+  const loginEmail = normalizeEmail(payload.loginEmail);
+  const password = String(payload.password || "");
+
+  if (!creatorId || !loginEmail || !password) {
+    throw new HttpError(400, "Creator ID, login email, and password are required.");
+  }
+
+  const creator = await findCreatorById(supabase, creatorId);
+
+  if (!creator) {
+    throw new HttpError(404, "Creator not found.");
+  }
+
+  if (creator.auth_user_id || creator.login_email) {
+    throw new HttpError(409, "This creator already has an issued account.");
+  }
+
+  await ensureLoginEmailAvailable(supabase, loginEmail, creatorId);
+
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    email: loginEmail,
+    password,
+    email_confirm: true,
+    user_metadata: {
+      full_name: creator.name,
+      creator_id: creator.id
+    }
+  });
+
+  if (authError || !authData?.user) {
+    throw new HttpError(400, authError?.message || "Unable to create the auth account.");
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("creators")
+      .update({
+        auth_user_id: authData.user.id,
+        login_email: loginEmail
+      })
+      .eq("id", creatorId)
+      .select(CREATOR_SELECT_FIELDS)
       .single();
 
     if (error) {
@@ -152,18 +263,7 @@ async function updateCreator(supabase, payload) {
   const nextLoginEmail = normalizeEmail(payload.loginEmail || creator.login_email);
 
   if (nextLoginEmail && nextLoginEmail !== normalizeEmail(creator.login_email)) {
-    const existingEmail = await maybeSingle(
-      supabase
-        .from("creators")
-        .select("id")
-        .ilike("login_email", nextLoginEmail)
-        .neq("id", creatorId)
-        .limit(1)
-    );
-
-    if (existingEmail) {
-      throw new HttpError(409, "This login email is already assigned.");
-    }
+    await ensureLoginEmailAvailable(supabase, nextLoginEmail, creatorId);
   }
 
   if (creator.auth_user_id && nextLoginEmail && nextLoginEmail !== normalizeEmail(creator.login_email)) {
@@ -193,9 +293,7 @@ async function updateCreator(supabase, payload) {
       subscribers_gained: Number(payload.subscribersGained || 0)
     })
     .eq("id", creatorId)
-    .select(
-      "id, auth_user_id, name, channel_name, channel_concept, join_date, channel_url, login_email, total_views, subscribers_gained, created_at, updated_at"
-    )
+    .select(CREATOR_SELECT_FIELDS)
     .single();
 
   if (error) {
@@ -258,6 +356,20 @@ exports.handler = async function handler(event) {
       return json(200, {
         ok: true,
         creator: await createCreator(supabase, body.payload || {})
+      });
+    }
+
+    if (action === "createCreatorProfile") {
+      return json(200, {
+        ok: true,
+        creator: await createCreatorProfile(supabase, body.payload || {})
+      });
+    }
+
+    if (action === "issueCreatorAccount") {
+      return json(200, {
+        ok: true,
+        creator: await issueCreatorAccount(supabase, body.payload || {})
       });
     }
 

@@ -1,42 +1,34 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { createSupabaseBrowser } from "@/lib/supabase/client"
 import type { CreatorWorkspaceAccount } from "@/lib/supabase/types"
 
-const createCreatorSchema = z.object({
-  creatorId: z
-    .string()
-    .min(2, "Creator ID must be at least 2 characters.")
-    .regex(/^[a-z0-9-]+$/, "Use lowercase letters, numbers, and hyphens only."),
-  name: z.string().min(1, "Enter the creator name."),
-  channelName: z.string().min(1, "Enter the channel name."),
-  channelConcept: z.string().optional(),
-  joinDate: z.string().min(1, "Select the join date."),
-  channelUrl: z.string().url("Enter a valid channel URL.").or(z.literal("")),
-  loginEmail: z.string().email("Enter a valid login email."),
-  password: z.string().min(8, "Use at least 8 characters for the password.")
+const issueAccountSchema = z.object({
+  loginEmail: z.string().email("올바른 로그인 이메일을 입력하세요."),
+  password: z.string().min(8, "비밀번호는 8자 이상이어야 합니다.")
 })
 
-type CreateCreatorValues = z.infer<typeof createCreatorSchema>
+type IssueAccountValues = z.infer<typeof issueAccountSchema>
+
+type AdminCreatorApiCaller = (options?: {
+  method?: "GET" | "POST"
+  body?: Record<string, unknown>
+}) => Promise<{
+  ok?: boolean
+  creator?: CreatorWorkspaceAccount
+}>
 
 type CreatorWorkspaceManagerProps = {
-  initialCreators: CreatorWorkspaceAccount[]
-}
-
-function slugifyCreatorId(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-{2,}/g, "-")
+  creators: CreatorWorkspaceAccount[]
+  selectedCreatorId: string | null
+  onSelectCreator: (creatorId: string) => void
+  onRefreshCreators: () => Promise<void> | void
+  onCreatorsChanged: (preferredCreatorId?: string | null) => Promise<void> | void
+  callAdminCreatorApi: AdminCreatorApiCaller
 }
 
 function generateTempPassword() {
@@ -49,107 +41,97 @@ function generateTempPassword() {
   }).join("")
 }
 
+function hasIssuedAccount(creator: CreatorWorkspaceAccount) {
+  return Boolean(creator.auth_user_id || creator.login_email)
+}
+
 export default function CreatorWorkspaceManager({
-  initialCreators
+  creators,
+  selectedCreatorId,
+  onSelectCreator,
+  onRefreshCreators,
+  onCreatorsChanged,
+  callAdminCreatorApi
 }: CreatorWorkspaceManagerProps) {
-  const supabase = useMemo(() => createSupabaseBrowser(), [])
-  const [creators, setCreators] = useState<CreatorWorkspaceAccount[]>(
-    initialCreators
-  )
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [resetPasswords, setResetPasswords] = useState<Record<string, string>>({})
-  const [resettingCreatorId, setResettingCreatorId] = useState<string | null>(null)
+  const [resettingCreatorId, setResettingCreatorId] = useState<string | null>(
+    null
+  )
   const [createdCredential, setCreatedCredential] = useState<{
     creatorId: string
     loginEmail: string
     password: string
   } | null>(null)
 
-  const form = useForm<CreateCreatorValues>({
-    resolver: zodResolver(createCreatorSchema),
+  const issuedCreators = useMemo(
+    () => creators.filter((creator) => hasIssuedAccount(creator)),
+    [creators]
+  )
+  const pendingCreators = useMemo(
+    () => creators.filter((creator) => !hasIssuedAccount(creator)),
+    [creators]
+  )
+  const selectedCreator = useMemo(() => {
+    const matchedCreator = creators.find((creator) => creator.id === selectedCreatorId)
+
+    if (matchedCreator) {
+      return matchedCreator
+    }
+
+    return pendingCreators[0] || creators[0] || null
+  }, [creators, pendingCreators, selectedCreatorId])
+
+  const form = useForm<IssueAccountValues>({
+    resolver: zodResolver(issueAccountSchema),
     defaultValues: {
-      creatorId: "",
-      name: "",
-      channelName: "",
-      channelConcept: "",
-      joinDate: new Date().toISOString().slice(0, 10),
-      channelUrl: "",
       loginEmail: "",
       password: generateTempPassword()
     }
   })
 
-  const callAdminCreatorApi = useCallback(
-    async (options?: { method?: "GET" | "POST"; body?: Record<string, unknown> }) => {
-      const {
-        data: { session }
-      } = await supabase.auth.getSession()
-
-      if (!session?.access_token) {
-        throw new Error("Admin session expired. Sign in again.")
-      }
-
-      const response = await fetch("/.netlify/functions/workspace-admin-creators", {
-        method: options?.method || "GET",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          "Content-Type": "application/json"
-        },
-        body: options?.body ? JSON.stringify(options.body) : undefined
-      })
-      const payload = await response.json().catch(() => ({}))
-
-      if (!response.ok) {
-        throw new Error(payload.error || "Request failed.")
-      }
-
-      return payload
-    },
-    [supabase]
-  )
-
-  const refreshCreators = useCallback(async () => {
-    try {
-      const payload = await callAdminCreatorApi()
-      setCreators(payload.creators || [])
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Unable to load creators."
-      )
+  useEffect(() => {
+    if (!selectedCreator) {
+      return
     }
-  }, [callAdminCreatorApi])
+
+    if (selectedCreator.id !== selectedCreatorId) {
+      onSelectCreator(selectedCreator.id)
+    }
+  }, [onSelectCreator, selectedCreator, selectedCreatorId])
+
+  useEffect(() => {
+    form.reset({
+      loginEmail: selectedCreator?.login_email || "",
+      password: generateTempPassword()
+    })
+    setError(null)
+  }, [form, selectedCreator])
 
   useEffect(() => {
     setResetPasswords((prev) => {
       const nextDrafts: Record<string, string> = {}
-      creators.forEach((creator) => {
+
+      issuedCreators.forEach((creator) => {
         nextDrafts[creator.id] = prev[creator.id] || ""
       })
+
       return nextDrafts
     })
-  }, [creators])
+  }, [issuedCreators])
 
-  const handleGenerateCreatorId = () => {
-    const name = form.getValues("name")
-    const channelName = form.getValues("channelName")
-    const fallback = name || channelName
-    const nextId = slugifyCreatorId(fallback)
-
-    if (!nextId) {
-      setError("Enter a creator or channel name first.")
+  const handleIssueAccount = async (values: IssueAccountValues) => {
+    if (!selectedCreator) {
+      setError("먼저 크리에이터를 등록하세요.")
       return
     }
 
-    form.setValue("creatorId", nextId, { shouldValidate: true })
-    setError(null)
-  }
+    if (hasIssuedAccount(selectedCreator)) {
+      setError("이미 계정이 생성된 크리에이터입니다.")
+      return
+    }
 
-  const handleGeneratePassword = () => {
-    form.setValue("password", generateTempPassword(), { shouldValidate: true })
-  }
-
-  const handleCreateCreator = async (values: CreateCreatorValues) => {
     setError(null)
     setNotice(null)
 
@@ -157,31 +139,29 @@ export default function CreatorWorkspaceManager({
       const payload = await callAdminCreatorApi({
         method: "POST",
         body: {
-          action: "createCreator",
-          payload: values
+          action: "issueCreatorAccount",
+          payload: {
+            creatorId: selectedCreator.id,
+            loginEmail: values.loginEmail,
+            password: values.password
+          }
         }
       })
 
       setCreatedCredential({
-        creatorId: payload.creator.id,
-        loginEmail: payload.creator.login_email,
+        creatorId: payload.creator?.id || selectedCreator.id,
+        loginEmail: payload.creator?.login_email || values.loginEmail,
         password: values.password
       })
-      setNotice("Creator workspace account created.")
+      setNotice(`${selectedCreator.name} 계정을 생성했습니다.`)
       form.reset({
-        creatorId: "",
-        name: "",
-        channelName: "",
-        channelConcept: "",
-        joinDate: new Date().toISOString().slice(0, 10),
-        channelUrl: "",
-        loginEmail: "",
+        loginEmail: payload.creator?.login_email || values.loginEmail,
         password: generateTempPassword()
       })
-      await refreshCreators()
+      await onCreatorsChanged(selectedCreator.id)
     } catch (error) {
       setError(
-        error instanceof Error ? error.message : "Unable to create the creator."
+        error instanceof Error ? error.message : "크리에이터 계정을 생성하지 못했습니다."
       )
     }
   }
@@ -190,7 +170,7 @@ export default function CreatorWorkspaceManager({
     const password = resetPasswords[creatorId]?.trim()
 
     if (!password || password.length < 8) {
-      setError("Use at least 8 characters for the new password.")
+      setError("새 비밀번호는 8자 이상이어야 합니다.")
       return
     }
 
@@ -210,18 +190,30 @@ export default function CreatorWorkspaceManager({
         }
       })
 
-      setNotice(`Password updated for ${creatorId}.`)
+      setNotice(`${creatorId} 계정 비밀번호를 변경했습니다.`)
       setResetPasswords((prev) => ({
         ...prev,
         [creatorId]: ""
       }))
     } catch (error) {
       setError(
-        error instanceof Error ? error.message : "Unable to reset the password."
+        error instanceof Error
+          ? error.message
+          : "비밀번호를 재설정하지 못했습니다."
       )
     } finally {
       setResettingCreatorId(null)
     }
+  }
+
+  if (creators.length === 0) {
+    return (
+      <section className="mt-10">
+        <div className="rounded-3xl border border-dashed border-border/60 bg-card px-8 py-14 text-center text-sm text-muted-foreground">
+          먼저 크리에이터 탭에서 계약 크리에이터를 등록하세요.
+        </div>
+      </section>
+    )
   }
 
   return (
@@ -230,174 +222,221 @@ export default function CreatorWorkspaceManager({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-              Creator Workspace Accounts
+              Account Setup
             </p>
             <h2 className="mt-2 text-xl font-semibold text-foreground">
-              Issue creator IDs and passwords
+              계정생성
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Create the workspace login ID, the linked Supabase Auth account,
-              and the creator record in one step.
+              등록된 크리에이터를 선택해 로그인 계정을 발급하고, 이미 발급된
+              계정은 워크스페이스 접속과 비밀번호 재설정을 바로 관리할 수
+              있습니다.
             </p>
           </div>
           <button
             type="button"
-            onClick={refreshCreators}
+            onClick={() => void onRefreshCreators()}
             className="rounded-full border border-border px-4 py-2 text-xs uppercase tracking-[0.25em] text-foreground boty-transition hover:bg-muted"
           >
             Refresh
           </button>
         </div>
 
-        <form
-          onSubmit={form.handleSubmit(handleCreateCreator)}
-          className="mt-8 grid gap-4 md:grid-cols-2"
-        >
-          <div>
+        <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+          <div className="rounded-2xl border border-border/60 bg-background/70 p-6">
             <label className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-              Creator name
+              Creator
             </label>
-            <input
+            <select
+              value={selectedCreator?.id || ""}
+              onChange={(event) => onSelectCreator(event.target.value)}
               className="mt-2 w-full bg-muted px-4 py-3 text-sm outline-none"
-              placeholder="채희"
-              {...form.register("name")}
-            />
-            {form.formState.errors.name && (
-              <p className="mt-1 text-xs text-destructive">
-                {form.formState.errors.name.message}
-              </p>
-            )}
-          </div>
-          <div>
-            <label className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-              Channel name
-            </label>
-            <input
-              className="mt-2 w-full bg-muted px-4 py-3 text-sm outline-none"
-              placeholder="ADHD Life"
-              {...form.register("channelName")}
-            />
-            {form.formState.errors.channelName && (
-              <p className="mt-1 text-xs text-destructive">
-                {form.formState.errors.channelName.message}
-              </p>
-            )}
-          </div>
-          <div>
-            <label className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-              Creator login ID
-            </label>
-            <div className="mt-2 flex gap-2">
-              <input
-                className="w-full bg-muted px-4 py-3 text-sm outline-none"
-                placeholder="chaehee"
-                {...form.register("creatorId")}
-              />
-              <button
-                type="button"
-                onClick={handleGenerateCreatorId}
-                className="shrink-0 rounded-full border border-border px-4 py-2 text-[11px] uppercase tracking-[0.25em] text-foreground boty-transition hover:bg-muted"
-              >
-                Generate
-              </button>
-            </div>
-            {form.formState.errors.creatorId && (
-              <p className="mt-1 text-xs text-destructive">
-                {form.formState.errors.creatorId.message}
-              </p>
-            )}
-          </div>
-          <div>
-            <label className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-              Login email
-            </label>
-            <input
-              className="mt-2 w-full bg-muted px-4 py-3 text-sm outline-none"
-              placeholder="chaehee@example.com"
-              {...form.register("loginEmail")}
-            />
-            {form.formState.errors.loginEmail && (
-              <p className="mt-1 text-xs text-destructive">
-                {form.formState.errors.loginEmail.message}
-              </p>
-            )}
-          </div>
-          <div>
-            <label className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-              Join date
-            </label>
-            <input
-              type="date"
-              className="mt-2 w-full bg-muted px-4 py-3 text-sm outline-none"
-              {...form.register("joinDate")}
-            />
-            {form.formState.errors.joinDate && (
-              <p className="mt-1 text-xs text-destructive">
-                {form.formState.errors.joinDate.message}
-              </p>
-            )}
-          </div>
-          <div>
-            <label className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-              Channel URL
-            </label>
-            <input
-              className="mt-2 w-full bg-muted px-4 py-3 text-sm outline-none"
-              placeholder="https://youtube.com/@adhdlife"
-              {...form.register("channelUrl")}
-            />
-            {form.formState.errors.channelUrl && (
-              <p className="mt-1 text-xs text-destructive">
-                {form.formState.errors.channelUrl.message}
-              </p>
-            )}
-          </div>
-          <div className="md:col-span-2">
-            <label className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-              Channel concept
-            </label>
-            <textarea
-              rows={4}
-              className="mt-2 w-full bg-muted px-4 py-3 text-sm outline-none"
-              placeholder="Short positioning and content direction"
-              {...form.register("channelConcept")}
-            />
-          </div>
-          <div>
-            <label className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
-              Temporary password
-            </label>
-            <div className="mt-2 flex gap-2">
-              <input
-                className="w-full bg-muted px-4 py-3 text-sm outline-none"
-                {...form.register("password")}
-              />
-              <button
-                type="button"
-                onClick={handleGeneratePassword}
-                className="shrink-0 rounded-full border border-border px-4 py-2 text-[11px] uppercase tracking-[0.25em] text-foreground boty-transition hover:bg-muted"
-              >
-                Generate
-              </button>
-            </div>
-            {form.formState.errors.password && (
-              <p className="mt-1 text-xs text-destructive">
-                {form.formState.errors.password.message}
-              </p>
-            )}
-          </div>
-          <div className="flex items-end">
-            <button
-              type="submit"
-              className="w-full bg-primary px-6 py-3 text-xs uppercase tracking-[0.25em] text-primary-foreground"
-              disabled={form.formState.isSubmitting}
             >
-              {form.formState.isSubmitting
-                ? "Creating..."
-                : "Create creator account"}
-            </button>
+              {creators.map((creator) => (
+                <option key={creator.id} value={creator.id}>
+                  {creator.name} / {creator.channel_name} /{" "}
+                  {hasIssuedAccount(creator) ? "발급완료" : "미발급"}
+                </option>
+              ))}
+            </select>
+
+            {selectedCreator && (
+              <div className="mt-6 space-y-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+                    {selectedCreator.id}
+                  </p>
+                  <span
+                    className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] ${
+                      hasIssuedAccount(selectedCreator)
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-amber-100 text-amber-700"
+                    }`}
+                  >
+                    {hasIssuedAccount(selectedCreator)
+                      ? "계정생성 완료"
+                      : "계정 미발급"}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">
+                    {selectedCreator.name}
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {selectedCreator.channel_name}
+                  </p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
+                      Join date
+                    </p>
+                    <p className="mt-2 text-sm text-foreground">
+                      {selectedCreator.join_date}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
+                      Login email
+                    </p>
+                    <p className="mt-2 break-all text-sm text-foreground">
+                      {selectedCreator.login_email || "미발급"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
+                      Total views
+                    </p>
+                    <p className="mt-2 text-sm text-foreground">
+                      {selectedCreator.total_views.toLocaleString("ko-KR")}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
+                      Subscribers gained
+                    </p>
+                    <p className="mt-2 text-sm text-foreground">
+                      {selectedCreator.subscribers_gained.toLocaleString("ko-KR")}
+                    </p>
+                  </div>
+                </div>
+                {selectedCreator.channel_concept && (
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    {selectedCreator.channel_concept}
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {hasIssuedAccount(selectedCreator) && (
+                    <Link
+                      href={`/workspace/${selectedCreator.id}`}
+                      className="rounded-full border border-border px-4 py-2 text-[11px] uppercase tracking-[0.25em] text-foreground boty-transition hover:bg-muted"
+                    >
+                      워크스페이스 이동
+                    </Link>
+                  )}
+                  {selectedCreator.channel_url && (
+                    <a
+                      href={selectedCreator.channel_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-full border border-border px-4 py-2 text-[11px] uppercase tracking-[0.25em] text-foreground boty-transition hover:bg-muted"
+                    >
+                      Channel
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
-        </form>
+
+          <div className="rounded-2xl border border-border/60 bg-background/70 p-6">
+            {selectedCreator && !hasIssuedAccount(selectedCreator) ? (
+              <form
+                onSubmit={form.handleSubmit(handleIssueAccount)}
+                className="space-y-4"
+              >
+                <div>
+                  <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
+                    Selected creator
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-foreground">
+                    {selectedCreator.name} ({selectedCreator.id})
+                  </p>
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
+                    Login email
+                  </label>
+                  <input
+                    className="mt-2 w-full bg-muted px-4 py-3 text-sm outline-none"
+                    placeholder="creator@example.com"
+                    {...form.register("loginEmail")}
+                  />
+                  {form.formState.errors.loginEmail && (
+                    <p className="mt-1 text-xs text-destructive">
+                      {form.formState.errors.loginEmail.message}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
+                    Temporary password
+                  </label>
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      className="w-full bg-muted px-4 py-3 text-sm outline-none"
+                      {...form.register("password")}
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        form.setValue("password", generateTempPassword(), {
+                          shouldValidate: true
+                        })
+                      }
+                      className="shrink-0 rounded-full border border-border px-4 py-2 text-[11px] uppercase tracking-[0.25em] text-foreground boty-transition hover:bg-muted"
+                    >
+                      Generate
+                    </button>
+                  </div>
+                  {form.formState.errors.password && (
+                    <p className="mt-1 text-xs text-destructive">
+                      {form.formState.errors.password.message}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="submit"
+                  className="w-full rounded-full bg-primary px-6 py-3 text-xs uppercase tracking-[0.25em] text-primary-foreground"
+                  disabled={form.formState.isSubmitting}
+                >
+                  {form.formState.isSubmitting ? "생성 중..." : "계정 생성"}
+                </button>
+              </form>
+            ) : selectedCreator ? (
+              <div className="space-y-4">
+                <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
+                  Account status
+                </p>
+                <h3 className="text-lg font-semibold text-foreground">
+                  이미 계정이 생성된 크리에이터입니다.
+                </h3>
+                <p className="text-sm leading-6 text-muted-foreground">
+                  기존 계정을 유지한 채 워크스페이스에 바로 이동할 수 있습니다.
+                  아래 목록에서 임시 비밀번호 재설정도 가능합니다.
+                </p>
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.25em] text-emerald-700">
+                    Current login
+                  </p>
+                  <p className="mt-2 break-all text-sm font-semibold text-emerald-900">
+                    {selectedCreator.login_email}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
 
         {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
         {notice && <p className="mt-4 text-sm text-emerald-600">{notice}</p>}
@@ -438,16 +477,16 @@ export default function CreatorWorkspaceManager({
               Issued accounts
             </p>
             <h3 className="mt-2 text-lg font-semibold text-foreground">
-              Creator workspace list
+              워크스페이스 접속 가능 계정
             </h3>
           </div>
           <p className="text-xs text-muted-foreground">
-            {creators.length} creator workspace account(s)
+            발급 완료 {issuedCreators.length}명 / 미발급 {pendingCreators.length}명
           </p>
         </div>
 
         <div className="mt-6 space-y-4">
-          {creators.map((creator) => (
+          {issuedCreators.map((creator) => (
             <article
               key={creator.id}
               className="rounded-2xl border border-border/60 bg-background/70 p-5"
@@ -465,11 +504,18 @@ export default function CreatorWorkspaceManager({
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onSelectCreator(creator.id)}
+                    className="rounded-full border border-border px-4 py-2 text-[11px] uppercase tracking-[0.25em] text-foreground boty-transition hover:bg-muted"
+                  >
+                    계정관리
+                  </button>
                   <Link
                     href={`/workspace/${creator.id}`}
                     className="rounded-full border border-border px-4 py-2 text-[11px] uppercase tracking-[0.25em] text-foreground boty-transition hover:bg-muted"
                   >
-                    Open workspace
+                    워크스페이스 이동
                   </Link>
                   {creator.channel_url && (
                     <a
@@ -522,7 +568,7 @@ export default function CreatorWorkspaceManager({
                       [creator.id]: event.target.value
                     }))
                   }
-                  placeholder="New temporary password"
+                  placeholder="새 임시 비밀번호"
                   className="w-full bg-muted px-4 py-3 text-sm outline-none"
                 />
                 <button
@@ -532,16 +578,16 @@ export default function CreatorWorkspaceManager({
                   className="rounded-full border border-border px-4 py-2 text-[11px] uppercase tracking-[0.25em] text-foreground boty-transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {resettingCreatorId === creator.id
-                    ? "Updating..."
-                    : "Reset password"}
+                    ? "변경 중..."
+                    : "비밀번호 재설정"}
                 </button>
               </div>
             </article>
           ))}
 
-          {creators.length === 0 && (
+          {issuedCreators.length === 0 && (
             <div className="rounded-2xl border border-dashed border-border/60 px-5 py-10 text-center text-sm text-muted-foreground">
-              No creator workspace account has been issued yet.
+              아직 워크스페이스 접속 가능한 계정이 없습니다.
             </div>
           )}
         </div>
