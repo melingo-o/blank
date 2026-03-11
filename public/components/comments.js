@@ -126,9 +126,8 @@ export function renderContentPartCard(part, index) {
   `;
 }
 
-export function renderContentPartEditor(parts = [], options = {}) {
+export function renderContentPartEditor(parts = []) {
   const safeParts = parts.length > 0 ? parts : [createEmptyPart()];
-  const extraActions = options.extraActions || "";
 
   return `
     <div class="rounded-[26px] border border-slate-200 bg-slate-50/80 p-4">
@@ -137,16 +136,13 @@ export function renderContentPartEditor(parts = [], options = {}) {
           <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">파트 구성</p>
           <p class="mt-1 text-sm text-slate-500">오프닝, 본문, 엔딩처럼 영상 흐름을 나눠 각 파트별 메모를 기록합니다.</p>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
-          ${extraActions}
-          <button
-            type="button"
-            data-add-part
-            class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-100"
-          >
+        <button
+          type="button"
+          data-add-part
+          class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-100"
+        >
           파트 추가
-          </button>
-        </div>
+        </button>
       </div>
 
       <div class="mt-4 space-y-3" data-parts-container>
@@ -418,17 +414,7 @@ export function renderContentDetail(content, feedback = [], attachments = []) {
             </div>
           </div>
 
-          ${renderContentPartEditor(content.parts || [], {
-            extraActions: `
-              <button
-                type="button"
-                data-delete-content="${escapeHtml(content.id)}"
-                class="inline-flex items-center justify-center rounded-full border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-600 transition hover:border-rose-300 hover:bg-rose-50"
-              >
-                삭제하기
-              </button>
-            `
-          })}
+          ${renderContentPartEditor(content.parts || [])}
 
           <button
             type="submit"

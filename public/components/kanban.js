@@ -160,13 +160,22 @@ function renderPlanningRow(content, feedbackCount, attachmentCount) {
           <h3 class="mt-3 text-lg font-semibold tracking-tight text-slate-950">${escapeHtml(content.title)}</h3>
         </div>
 
-        <button
-          type="button"
-          data-open-content="${escapeHtml(content.id)}"
-          class="inline-flex items-center justify-center rounded-full border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-        >
-          파트/세부 관리
-        </button>
+        <div class="flex flex-wrap items-center gap-2 xl:self-start">
+          <button
+            type="button"
+            data-open-content="${escapeHtml(content.id)}"
+            class="inline-flex items-center justify-center rounded-full border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            파트/세부 관리
+          </button>
+          <button
+            type="button"
+            data-delete-content="${escapeHtml(content.id)}"
+            class="inline-flex items-center justify-center rounded-full border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-600 transition hover:border-rose-300 hover:bg-rose-50"
+          >
+            삭제하기
+          </button>
+        </div>
       </div>
 
       <div class="mt-5 grid gap-3 xl:grid-cols-5">
@@ -184,7 +193,8 @@ export function renderKanban({
   feedbackByContent,
   attachmentsByContent,
   onOpenContent,
-  onCreateContent
+  onCreateContent,
+  onDeleteContent
 }) {
   const summary = CONTENT_PLAN_STAGES.map((stage) => {
     if (stage.id === "thumbnail") {
@@ -278,6 +288,12 @@ export function renderKanban({
   root.querySelectorAll("[data-open-content]").forEach((button) => {
     button.addEventListener("click", () => {
       onOpenContent(button.getAttribute("data-open-content"));
+    });
+  });
+
+  root.querySelectorAll("[data-delete-content]").forEach((button) => {
+    button.addEventListener("click", () => {
+      onDeleteContent(button.getAttribute("data-delete-content"));
     });
   });
 }

@@ -346,7 +346,8 @@ function renderWorkspace() {
     feedbackByContent: state.feedbackByContent,
     attachmentsByContent: state.attachmentsByContent,
     onOpenContent: openContentDetail,
-    onCreateContent: openCreateContentModal
+    onCreateContent: openCreateContentModal,
+    onDeleteContent: handleDeleteContent
   });
   renderFeedbackPanel({
     root: refs.feedback,
@@ -789,6 +790,30 @@ async function mutateWorkspace(action, payload, options = {}) {
   }
 }
 
+async function handleDeleteContent(contentId) {
+  if (!contentId) {
+    return;
+  }
+
+  const shouldDelete = window.confirm(
+    "이 콘텐츠 기획안을 삭제할까요?\n등록된 피드백과 첨부 파일도 함께 정리됩니다."
+  );
+
+  if (!shouldDelete) {
+    return;
+  }
+
+  try {
+    await mutateWorkspace("deleteContent", {
+      contentId
+    });
+    showToast("콘텐츠 기획안이 삭제되었습니다.", "success");
+  } catch (error) {
+    console.error(error);
+    showToast(error.message || "콘텐츠 기획안을 삭제하지 못했습니다.", "error");
+  }
+}
+
 function openMeetingModal() {
   openModal(`
     <div class="space-y-5">
@@ -1120,39 +1145,6 @@ function openContentDetail(contentId) {
         { reopenContentId: contentId }
       );
       showToast("콘텐츠 기획안이 업데이트되었습니다.", "success");
-    });
-
-  refs.modal
-    .querySelector("[data-delete-content]")
-    ?.addEventListener("click", async (event) => {
-      const button = event.currentTarget;
-
-      if (!(button instanceof HTMLButtonElement)) {
-        return;
-      }
-
-      const targetContentId = button.getAttribute("data-delete-content") || contentId;
-      const shouldDelete = window.confirm(
-        "이 콘텐츠 기획안을 삭제할까요?\n등록된 피드백과 첨부 파일도 함께 정리됩니다."
-      );
-
-      if (!shouldDelete) {
-        return;
-      }
-
-      button.disabled = true;
-
-      try {
-        await mutateWorkspace("deleteContent", {
-          contentId: targetContentId
-        });
-        closeModal();
-        showToast("콘텐츠 기획안이 삭제되었습니다.", "success");
-      } catch (error) {
-        console.error(error);
-        button.disabled = false;
-        showToast(error.message || "콘텐츠 기획안을 삭제하지 못했습니다.", "error");
-      }
     });
 
   refs.modal
