@@ -207,10 +207,18 @@ export function PortfolioSection({ initialItems }: PortfolioSectionProps) {
             const displayName = comingSoon?.month ?? displayCreator.name
             const displayNiche = comingSoon
               ? "COMING SOON"
+              : isChaeheeFeature
+                ? "CREATOR"
+                : displayCreator.niche
+            const hoverNiche = isChaeheeFeature
+              ? "LIFESTYLE CREATOR"
               : displayCreator.niche
             const showInstagram =
               !comingSoon && Boolean(displayCreator.instagram_handle)
             const displayImage = comingSoonImage ?? displayCreator.image_url
+            const imageClassName = isChaeheeFeature
+              ? "h-full w-full bg-[#eceef2] object-contain object-center p-4 transition-transform duration-700 group-hover:scale-[1.02]"
+              : "h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
 
             const cardContent = (
               <article
@@ -232,7 +240,7 @@ export function PortfolioSection({ initialItems }: PortfolioSectionProps) {
                         ? `${displayName} coming soon`
                         : `${displayName} profile`
                     }
-                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    className={imageClassName}
                     loading="lazy"
                   />
                 ) : (
@@ -259,7 +267,7 @@ export function PortfolioSection({ initialItems }: PortfolioSectionProps) {
                     <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/30 to-black/70 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                     <div className="absolute inset-0 flex flex-col justify-end p-6 text-white opacity-0 transition-opacity duration-300 group-hover:opacity-100">
                       <p className="text-xs uppercase tracking-[0.3em] text-white/70">
-                        {displayCreator.niche}
+                        {hoverNiche}
                       </p>
                       <div className="mt-2 flex items-center justify-between">
                         {linkedUrl ? (
