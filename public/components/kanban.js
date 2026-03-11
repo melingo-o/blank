@@ -1,18 +1,13 @@
-const STATUS_LABELS = {
-  idea: "아이디어",
-  script: "대본",
-  filming: "촬영",
-  editing: "편집",
-  published: "발행"
-};
+import {
+  CONTENT_PLAN_STAGES,
+  CONTENT_STATUS_OPTIONS,
+  collectPartTitles,
+  countFilledParts
+} from "/components/content-plan.js";
 
-const KANBAN_COLUMNS = [
-  { id: "idea", label: STATUS_LABELS.idea },
-  { id: "script", label: STATUS_LABELS.script },
-  { id: "filming", label: STATUS_LABELS.filming },
-  { id: "editing", label: STATUS_LABELS.editing },
-  { id: "published", label: STATUS_LABELS.published }
-];
+const STATUS_LABELS = Object.fromEntries(
+  CONTENT_STATUS_OPTIONS.map((item) => [item.id, item.label])
+);
 
 function escapeHtml(value = "") {
   return String(value)
@@ -23,14 +18,8 @@ function escapeHtml(value = "") {
     .replace(/'/g, "&#39;");
 }
 
-function previewText(content) {
-  const source = content.script || content.concept || "";
-
-  if (!source) {
-    return "아직 초안이 등록되지 않았습니다.";
-  }
-
-  return source.length > 110 ? `${source.slice(0, 110)}...` : source;
+function truncateText(value = "", limit = 72) {
+  return value.length > limit ? `${value.slice(0, limit)}...` : value;
 }
 
 function formatDate(value) {
@@ -50,71 +39,141 @@ function formatDate(value) {
   }).format(parsed);
 }
 
-function renderCard(content, feedbackCount, attachmentCount) {
-  const thumbnail = content.thumbnail_signed_url || content.thumbnail_url || "";
-  const statusLabel = STATUS_LABELS[content.status] || content.status;
+function buildStageSnapshot(content, stageId, attachmentCount) {
+  const sections = content.planSections || {};
+  const parts = content.parts || [];
+  const partTitles = collectPartTitles(parts, 3);
+
+  switch (stageId) {
+    case "idea":
+      return {
+        summary:
+          sections.idea ||
+          (partTitles.length > 0
+            ? `${partTitles.join(", ")} 중심으로 구성 중`
+            : "핵심 아이디어와 메시지를 적어 주세요."),
+        meta:
+          partTitles.length > 0
+            ? `파트 ${parts.length}개 구조`
+            : "파트 구조 미정"
+      };
+    case "thumbnail":
+      return {
+        summary:
+          sections.thumbnail ||
+          (content.thumbnail_signed_url || content.thumbnail_url
+            ? "썸네일 이미지가 업로드되어 있습니다."
+            : "카피와 비주얼 방향을 적어 주세요."),
+        meta:
+          content.thumbnail_signed_url || content.thumbnail_url
+            ? "이미지 업로드됨"
+            : attachmentCount > 0
+              ? `첨부 ${attachmentCount}개`
+              : "썸네일 메모 없음"
+      };
+    case "script": {
+      const filled = countFilledParts(parts, "script");
+      return {
+        summary:
+          sections.script ||
+          (partTitles.length > 0
+            ? `${partTitles.join(", ")} 대본을 이어서 작성하세요.`
+            : "파트별 대본 메모를 추가해 주세요."),
+        meta: parts.length > 0 ? `${filled}/${parts.length} 파트 기록` : "파트 없음"
+      };
+    }
+    case "filming": {
+      const filled = countFilledParts(parts, "filming");
+      return {
+        summary:
+          sections.filming ||
+          (partTitles.length > 0
+            ? `${partTitles.join(", ")} 촬영 메모를 정리하세요.`
+            : "컷 구성과 촬영 준비를 적어 주세요."),
+        meta: parts.length > 0 ? `${filled}/${parts.length} 파트 기록` : "파트 없음"
+      };
+    }
+    case "editing": {
+      const filled = countFilledParts(parts, "editing");
+      return {
+        summary:
+          sections.editing ||
+          (partTitles.length > 0
+            ? `${partTitles.join(", ")} 편집 포인트를 적어 주세요.`
+            : "자막, 컷 편집, 리듬 메모를 적어 주세요."),
+        meta: parts.length > 0 ? `${filled}/${parts.length} 파트 기록` : "파트 없음"
+      };
+    }
+    default:
+      return {
+        summary: "아직 내용이 없습니다.",
+        meta: ""
+      };
+  }
+}
+
+function renderStageCard(content, stage, attachmentCount) {
+  const snapshot = buildStageSnapshot(content, stage.id, attachmentCount);
 
   return `
-    <article
-      draggable="true"
-      data-content-card="${escapeHtml(content.id)}"
-      data-current-status="${escapeHtml(content.status)}"
-      class="workspace-card group cursor-grab rounded-[22px] border border-slate-200 bg-white p-4 shadow-[0_12px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_18px_34px_rgba(15,23,42,0.1)] active:cursor-grabbing"
+    <button
+      type="button"
+      data-open-content="${escapeHtml(content.id)}"
+      class="rounded-[22px] border border-slate-200 bg-slate-50/80 px-4 py-4 text-left transition hover:border-slate-300 hover:bg-white"
     >
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">${escapeHtml(statusLabel)}</p>
-          <h3 class="mt-2 text-sm font-semibold leading-6 text-slate-900">${escapeHtml(content.title)}</h3>
+      <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">${escapeHtml(stage.label)}</p>
+      <p class="mt-3 text-sm font-medium leading-6 text-slate-700">${escapeHtml(truncateText(snapshot.summary, 88))}</p>
+      <p class="mt-3 text-xs font-medium text-slate-500">${escapeHtml(snapshot.meta)}</p>
+    </button>
+  `;
+}
+
+function renderPlanningRow(content, feedbackCount, attachmentCount) {
+  const statusLabel = STATUS_LABELS[content.status] || content.status;
+  const publishLabel = formatDate(content.publish_date);
+  const partCount = content.parts?.length || 0;
+
+  return `
+    <article class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_14px_28px_rgba(15,23,42,0.05)]">
+      <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+              현재 단계 · ${escapeHtml(statusLabel)}
+            </span>
+            <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+              파트 ${partCount}개
+            </span>
+            <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+              피드백 ${feedbackCount}개
+            </span>
+            ${
+              publishLabel
+                ? `
+                  <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                    발행일 ${escapeHtml(publishLabel)}
+                  </span>
+                `
+                : ""
+            }
+          </div>
+          <h3 class="mt-3 text-lg font-semibold tracking-tight text-slate-950">${escapeHtml(content.title)}</h3>
         </div>
-        ${
-          content.publish_date
-            ? `
-              <span class="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-500">
-                ${escapeHtml(formatDate(content.publish_date))}
-              </span>
-            `
-            : ""
-        }
+
+        <button
+          type="button"
+          data-open-content="${escapeHtml(content.id)}"
+          class="inline-flex items-center justify-center rounded-full border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+        >
+          파트/세부 관리
+        </button>
       </div>
 
-      ${
-        thumbnail
-          ? `
-            <div class="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
-              <img
-                src="${escapeHtml(thumbnail)}"
-                alt="${escapeHtml(content.title)} 썸네일"
-                class="h-32 w-full object-cover transition duration-300 group-hover:scale-[1.02]"
-                loading="lazy"
-              />
-            </div>
-          `
-          : `
-            <div class="mt-4 flex h-32 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-xs font-medium text-slate-400">
-              썸네일 대기 중
-            </div>
-          `
-      }
-
-      <p class="mt-4 text-sm leading-6 text-slate-600">${escapeHtml(previewText(content))}</p>
-
-      <div class="mt-4 flex flex-wrap gap-2">
-        <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-500">
-          댓글 ${feedbackCount}개
-        </span>
-        <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-500">
-          파일 ${attachmentCount}개
-        </span>
+      <div class="mt-5 grid gap-3 xl:grid-cols-5">
+        ${CONTENT_PLAN_STAGES.map((stage) =>
+          renderStageCard(content, stage, attachmentCount)
+        ).join("")}
       </div>
-
-      <button
-        type="button"
-        data-open-content="${escapeHtml(content.id)}"
-        class="mt-4 inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
-      >
-        상세 보기
-        <span aria-hidden="true">&#8594;</span>
-      </button>
     </article>
   `;
 }
@@ -124,76 +183,91 @@ export function renderKanban({
   contents,
   feedbackByContent,
   attachmentsByContent,
-  onStatusChange,
   onOpenContent,
   onCreateContent
 }) {
-  const grouped = contents.reduce((accumulator, item) => {
-    const bucket = accumulator[item.status] || [];
-    bucket.push(item);
-    accumulator[item.status] = bucket;
-    return accumulator;
-  }, {});
+  const summary = CONTENT_PLAN_STAGES.map((stage) => {
+    if (stage.id === "thumbnail") {
+      const total = contents.filter(
+        (content) =>
+          content.planSections?.thumbnail ||
+          content.thumbnail_signed_url ||
+          content.thumbnail_url
+      ).length;
+
+      return { ...stage, total };
+    }
+
+    const total = contents.filter((content) => {
+      if (stage.id === "idea") {
+        return Boolean(content.planSections?.idea);
+      }
+
+      return (
+        Boolean(content.planSections?.[stage.id]) ||
+        countFilledParts(content.parts || [], stage.id) > 0
+      );
+    }).length;
+
+    return { ...stage, total };
+  });
 
   root.innerHTML = `
-    <div class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_20px_36px_rgba(15,23,42,0.05)]">
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">콘텐츠 파이프라인</p>
-          <h2 class="mt-2 text-xl font-semibold text-slate-900">제작 단계별 진행 보드</h2>
-          <p class="mt-2 text-sm leading-6 text-slate-500">
-            카드를 단계별로 이동시키면서 기획, 제작, 발행 히스토리를 한눈에 관리하세요.
-          </p>
+    <div class="space-y-6">
+      <section class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_34px_rgba(15,23,42,0.05)]">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">콘텐츠 기획</p>
+            <h2 class="mt-2 text-xl font-semibold text-slate-900">기획안별 제작 구조 보드</h2>
+            <p class="mt-2 text-sm leading-6 text-slate-500">
+              아이디어, 썸네일, 대본, 촬영, 편집을 한 줄에서 보고 각 영상의 파트 구조까지 함께 관리하세요.
+            </p>
+          </div>
+          <button
+            type="button"
+            data-action="create-content"
+            class="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            새 콘텐츠
+          </button>
         </div>
-        <button
-          type="button"
-          data-action="create-content"
-          class="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-        >
-          새 콘텐츠
-        </button>
-      </div>
 
-      <div class="mt-6 grid gap-4 xl:grid-cols-5">
-        ${KANBAN_COLUMNS.map((column) => {
-          const cards = grouped[column.id] || [];
-          return `
-            <section
-              data-status-column="${escapeHtml(column.id)}"
-              class="workspace-column min-h-[440px] rounded-[24px] border border-slate-200 bg-slate-50/80 p-3"
-            >
-              <header class="mb-3 flex items-center justify-between gap-2 px-2">
-                <div>
-                  <p class="text-sm font-semibold text-slate-900">${escapeHtml(column.label)}</p>
-                  <p class="text-xs text-slate-500">${cards.length}개 항목</p>
+        <div class="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          ${summary
+            .map(
+              (item) => `
+                <div class="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4">
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">${escapeHtml(item.label)}</p>
+                  <div class="mt-2 flex items-end justify-between gap-3">
+                    <p class="text-base font-semibold text-slate-900">${escapeHtml(item.description)}</p>
+                    <span class="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-500">${item.total}</span>
+                  </div>
                 </div>
-                <span class="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-500">
-                  ${escapeHtml(column.id)}
-                </span>
-              </header>
-              <div class="space-y-3" data-status-cards="${escapeHtml(column.id)}">
-                ${
-                  cards.length > 0
-                    ? cards
-                        .map((content) =>
-                          renderCard(
-                            content,
-                            (feedbackByContent[content.id] || []).length,
-                            (attachmentsByContent[content.id] || []).length
-                          )
-                        )
-                        .join("")
-                    : `
-                        <div class="rounded-[22px] border border-dashed border-slate-200 bg-white/80 px-4 py-8 text-center text-sm text-slate-400">
-                          ${escapeHtml(column.label)} 단계의 카드가 아직 없습니다.
-                        </div>
-                      `
-                }
-              </div>
-            </section>
-          `;
-        }).join("")}
-      </div>
+              `
+            )
+            .join("")}
+        </div>
+      </section>
+
+      <section class="space-y-4">
+        ${
+          contents.length > 0
+            ? contents
+                .map((content) =>
+                  renderPlanningRow(
+                    content,
+                    (feedbackByContent[content.id] || []).length,
+                    (attachmentsByContent[content.id] || []).length
+                  )
+                )
+                .join("")
+            : `
+                <div class="rounded-[28px] border border-dashed border-slate-200 bg-white px-4 py-12 text-center text-sm text-slate-400">
+                  아직 등록된 기획안이 없습니다. 새 콘텐츠를 눌러 첫 기획안을 만들어 주세요.
+                </div>
+              `
+        }
+      </section>
     </div>
   `;
 
@@ -204,42 +278,6 @@ export function renderKanban({
   root.querySelectorAll("[data-open-content]").forEach((button) => {
     button.addEventListener("click", () => {
       onOpenContent(button.getAttribute("data-open-content"));
-    });
-  });
-
-  root.querySelectorAll("[data-content-card]").forEach((card) => {
-    card.addEventListener("dragstart", (event) => {
-      event.dataTransfer?.setData("text/plain", card.getAttribute("data-content-card") || "");
-      card.classList.add("workspace-card--dragging");
-    });
-
-    card.addEventListener("dragend", () => {
-      card.classList.remove("workspace-card--dragging");
-    });
-  });
-
-  root.querySelectorAll("[data-status-column]").forEach((column) => {
-    column.addEventListener("dragover", (event) => {
-      event.preventDefault();
-      column.classList.add("workspace-column--active");
-    });
-
-    column.addEventListener("dragleave", () => {
-      column.classList.remove("workspace-column--active");
-    });
-
-    column.addEventListener("drop", async (event) => {
-      event.preventDefault();
-      column.classList.remove("workspace-column--active");
-
-      const contentId = event.dataTransfer?.getData("text/plain");
-      const targetStatus = column.getAttribute("data-status-column");
-
-      if (!contentId || !targetStatus) {
-        return;
-      }
-
-      await onStatusChange(contentId, targetStatus);
     });
   });
 }

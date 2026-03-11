@@ -1,10 +1,11 @@
-const STATUS_LABELS = {
-  idea: "아이디어",
-  script: "대본",
-  filming: "촬영",
-  editing: "편집",
-  published: "발행"
-};
+import {
+  CONTENT_STATUS_OPTIONS,
+  createEmptyPart
+} from "/components/content-plan.js";
+
+const STATUS_LABELS = Object.fromEntries(
+  CONTENT_STATUS_OPTIONS.map((item) => [item.id, item.label])
+);
 
 const ATTACHMENT_KIND_LABELS = {
   thumbnail: "썸네일 이미지",
@@ -12,8 +13,6 @@ const ATTACHMENT_KIND_LABELS = {
   pdf_note: "PDF 노트",
   reference: "참고 자료"
 };
-
-const STATUS_OPTIONS = ["idea", "script", "filming", "editing", "published"];
 
 function escapeHtml(value = "") {
   return String(value)
@@ -60,6 +59,99 @@ function renderComment(comment) {
   `;
 }
 
+export function renderContentPartCard(part, index) {
+  const safePart = createEmptyPart(part);
+
+  return `
+    <article class="rounded-[24px] border border-slate-200 bg-white p-4" data-part-card>
+      <input type="hidden" name="partId" value="${escapeHtml(safePart.id)}" />
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p data-part-order class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Part ${String(index + 1).padStart(2, "0")}</p>
+          <input
+            name="partTitle"
+            value="${escapeHtml(safePart.title)}"
+            placeholder="오프닝 / 본문 1 / 엔딩"
+            class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white sm:min-w-[240px]"
+          />
+        </div>
+        <button
+          type="button"
+          data-remove-part
+          class="inline-flex items-center justify-center rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-500 transition hover:border-slate-300 hover:bg-slate-50"
+        >
+          파트 삭제
+        </button>
+      </div>
+
+      <div class="mt-4 grid gap-3 xl:grid-cols-2">
+        <div>
+          <label class="block text-sm font-medium text-slate-700">아이디어</label>
+          <textarea
+            name="partIdea"
+            rows="4"
+            class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
+            placeholder="이 파트에서 전달할 메시지, 감정, 훅"
+          >${escapeHtml(safePart.idea)}</textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700">대본</label>
+          <textarea
+            name="partScript"
+            rows="4"
+            class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
+            placeholder="이 파트의 대사, 장면 전개, 나레이션"
+          >${escapeHtml(safePart.script)}</textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700">촬영 메모</label>
+          <textarea
+            name="partFilming"
+            rows="4"
+            class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
+            placeholder="카메라 구도, B-roll, 필요한 소스"
+          >${escapeHtml(safePart.filming)}</textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700">편집 메모</label>
+          <textarea
+            name="partEditing"
+            rows="4"
+            class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
+            placeholder="컷 편집, 자막, 효과음, 강조 포인트"
+          >${escapeHtml(safePart.editing)}</textarea>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+export function renderContentPartEditor(parts = []) {
+  const safeParts = parts.length > 0 ? parts : [createEmptyPart()];
+
+  return `
+    <div class="rounded-[26px] border border-slate-200 bg-slate-50/80 p-4">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">파트 구성</p>
+          <p class="mt-1 text-sm text-slate-500">오프닝, 본문, 엔딩처럼 영상 흐름을 나눠 각 파트별 메모를 기록합니다.</p>
+        </div>
+        <button
+          type="button"
+          data-add-part
+          class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-100"
+        >
+          파트 추가
+        </button>
+      </div>
+
+      <div class="mt-4 space-y-3" data-parts-container>
+        ${safeParts.map((part, index) => renderContentPartCard(part, index)).join("")}
+      </div>
+    </div>
+  `;
+}
+
 export function renderFeedbackPanel({
   root,
   contents,
@@ -88,14 +180,14 @@ export function renderFeedbackPanel({
 
         <form class="mt-6 space-y-4" data-feedback-form>
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="feedback-content-id">콘텐츠 카드</label>
+            <label class="block text-sm font-medium text-slate-700" for="feedback-content-id">콘텐츠 기획안</label>
             <select
               id="feedback-content-id"
               name="contentId"
               class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
               required
             >
-              <option value="">카드를 선택해 주세요</option>
+              <option value="">기획안을 선택해 주세요</option>
               ${contents
                 .map(
                   (content) => `
@@ -129,7 +221,7 @@ export function renderFeedbackPanel({
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">대화 기록</p>
-            <h2 class="mt-2 text-xl font-semibold text-slate-900">콘텐츠 카드별 피드백 로그</h2>
+            <h2 class="mt-2 text-xl font-semibold text-slate-900">콘텐츠 기획안별 피드백 로그</h2>
           </div>
         </div>
 
@@ -153,7 +245,7 @@ export function renderFeedbackPanel({
                             data-open-content="${escapeHtml(content.id)}"
                             class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-100"
                           >
-                            카드 열기
+                            기획안 열기
                           </button>
                         </div>
                         <div class="mt-4 space-y-3">
@@ -173,7 +265,7 @@ export function renderFeedbackPanel({
                   .join("")
               : `
                   <div class="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-400">
-                    먼저 콘텐츠 카드를 추가한 뒤 피드백을 남겨 주세요.
+                    먼저 콘텐츠 기획안을 추가한 뒤 피드백을 남겨 주세요.
                   </div>
                 `
           }
@@ -207,14 +299,15 @@ export function renderFeedbackPanel({
 
 export function renderContentDetail(content, feedback = [], attachments = []) {
   const thumbnail = content.thumbnail_signed_url || content.thumbnail_url || "";
+  const sections = content.planSections || {};
 
   return `
-    <div class="workspace-detail grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+    <div class="workspace-detail grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
       <section class="space-y-5">
         <div class="flex items-start justify-between gap-4">
           <div>
-            <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">콘텐츠 상세</p>
-            <h2 class="mt-2 text-2xl font-semibold text-slate-950">${escapeHtml(content.title || "제목 없는 콘텐츠")}</h2>
+            <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">콘텐츠 기획안 상세</p>
+            <h2 class="mt-2 text-2xl font-semibold text-slate-950">${escapeHtml(content.title || "제목 없는 기획안")}</h2>
             <p class="mt-2 text-sm text-slate-500">
               최근 수정 ${escapeHtml(formatDate(content.updated_at || content.created_at))}
             </p>
@@ -228,65 +321,106 @@ export function renderContentDetail(content, feedback = [], attachments = []) {
           </button>
         </div>
 
-        <form class="space-y-4" data-content-edit-form>
+        <form class="space-y-5" data-content-edit-form>
           <input type="hidden" name="contentId" value="${escapeHtml(content.id)}" />
-          <div>
-            <label class="block text-sm font-medium text-slate-700" for="detail-title">제목</label>
-            <input
-              id="detail-title"
-              name="title"
-              value="${escapeHtml(content.title || "")}"
-              class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
-              required
-            />
-          </div>
-          <div class="grid gap-4 md:grid-cols-2">
+          <div class="rounded-[26px] border border-slate-200 bg-white p-4">
             <div>
-              <label class="block text-sm font-medium text-slate-700" for="detail-status">단계</label>
-              <select
-                id="detail-status"
-                name="status"
-                class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
-              >
-                ${STATUS_OPTIONS.map((option) => `<option value="${escapeHtml(option)}" ${option === content.status ? "selected" : ""}>${escapeHtml(STATUS_LABELS[option] || option)}</option>`).join("")}
-              </select>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-slate-700" for="detail-publish-date">발행일</label>
+              <label class="block text-sm font-medium text-slate-700" for="detail-title">제목</label>
               <input
-                id="detail-publish-date"
-                name="publishDate"
-                type="date"
-                value="${escapeHtml(content.publish_date || "")}"
+                id="detail-title"
+                name="title"
+                value="${escapeHtml(content.title || "")}"
                 class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
+                required
               />
             </div>
+
+            <div class="mt-4 grid gap-4 md:grid-cols-2">
+              <div>
+                <label class="block text-sm font-medium text-slate-700" for="detail-status">현재 단계</label>
+                <select
+                  id="detail-status"
+                  name="status"
+                  class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
+                >
+                  ${CONTENT_STATUS_OPTIONS.map((option) => `<option value="${escapeHtml(option.id)}" ${option.id === content.status ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700" for="detail-publish-date">발행일</label>
+                <input
+                  id="detail-publish-date"
+                  name="publishDate"
+                  type="date"
+                  value="${escapeHtml(content.publish_date || "")}"
+                  class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
+                />
+              </div>
+            </div>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-slate-700" for="detail-concept">콘셉트</label>
-            <textarea
-              id="detail-concept"
-              name="concept"
-              rows="4"
-              class="mt-2 w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
-              placeholder="이 콘텐츠의 핵심 기획 의도를 정리해 주세요."
-            >${escapeHtml(content.concept || "")}</textarea>
+
+          <div class="rounded-[26px] border border-slate-200 bg-white p-4">
+            <div class="grid gap-4 xl:grid-cols-2">
+              <div>
+                <label class="block text-sm font-medium text-slate-700" for="detail-idea">아이디어 메모</label>
+                <textarea
+                  id="detail-idea"
+                  name="sectionIdea"
+                  rows="5"
+                  class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
+                  placeholder="이 영상의 핵심 메시지, 감정선, 훅을 적어 주세요."
+                >${escapeHtml(sections.idea || "")}</textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700" for="detail-thumbnail-note">썸네일 메모</label>
+                <textarea
+                  id="detail-thumbnail-note"
+                  name="sectionThumbnail"
+                  rows="5"
+                  class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
+                  placeholder="썸네일 카피, 표정, 색감, 참고 레퍼런스"
+                >${escapeHtml(sections.thumbnail || "")}</textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700" for="detail-script-summary">대본 전체 메모</label>
+                <textarea
+                  id="detail-script-summary"
+                  name="sectionScript"
+                  rows="5"
+                  class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
+                  placeholder="영상 전체 흐름이나 대본 방향을 적어 주세요."
+                >${escapeHtml(sections.script || "")}</textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700" for="detail-filming-summary">촬영 전체 메모</label>
+                <textarea
+                  id="detail-filming-summary"
+                  name="sectionFilming"
+                  rows="5"
+                  class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
+                  placeholder="촬영 일정, 준비물, 장소, 필요한 소스를 적어 주세요."
+                >${escapeHtml(sections.filming || "")}</textarea>
+              </div>
+              <div class="xl:col-span-2">
+                <label class="block text-sm font-medium text-slate-700" for="detail-editing-summary">편집 전체 메모</label>
+                <textarea
+                  id="detail-editing-summary"
+                  name="sectionEditing"
+                  rows="5"
+                  class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
+                  placeholder="리듬, 자막, 사운드, 컷 편집 가이드를 적어 주세요."
+                >${escapeHtml(sections.editing || "")}</textarea>
+              </div>
+            </div>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-slate-700" for="detail-script">대본 초안</label>
-            <textarea
-              id="detail-script"
-              name="script"
-              rows="10"
-              class="mt-2 w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
-              placeholder="작업 중인 대본, 비트시트, 구성안을 붙여 넣어 주세요."
-            >${escapeHtml(content.script || "")}</textarea>
-          </div>
+
+          ${renderContentPartEditor(content.parts || [])}
+
           <button
             type="submit"
             class="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
-            카드 저장
+            기획안 저장
           </button>
         </form>
       </section>

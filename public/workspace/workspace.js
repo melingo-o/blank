@@ -1,15 +1,28 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-import { renderChannelPlanPanel } from "/components/channel-plan.js";
-import { renderSidebar } from "/components/sidebar.js";
-import { renderKanban } from "/components/kanban.js";
-import { renderFeedbackPanel, renderContentDetail } from "/components/comments.js";
-import { renderTimeline } from "/components/timeline.js";
+import { renderChannelPlanPanel } from "/components/channel-plan.js?v=20260311c";
+import { renderSidebar } from "/components/sidebar.js?v=20260311c";
+import { renderKanban } from "/components/kanban.js?v=20260311c";
+import {
+  renderFeedbackPanel,
+  renderContentDetail,
+  renderContentPartCard,
+  renderContentPartEditor
+} from "/components/comments.js?v=20260311c";
+import {
+  CONTENT_PLAN_STAGES,
+  CONTENT_STATUS_OPTIONS,
+  buildContentSavePayload,
+  createDefaultPlanSections,
+  createEmptyPart,
+  hydrateContents
+} from "/components/content-plan.js?v=20260311c";
+import { renderTimeline } from "/components/timeline.js?v=20260311c";
 
 const TABS = [
   { id: "overview", label: "개요" },
   { id: "strategy", label: "채널 기획" },
   { id: "meetings", label: "미팅" },
-  { id: "pipeline", label: "콘텐츠 파이프라인" },
+  { id: "pipeline", label: "콘텐츠기획" },
   { id: "feedback", label: "피드백" },
   { id: "timeline", label: "타임라인" }
 ];
@@ -47,7 +60,8 @@ const state = {
   workspace: null,
   feedbackByContent: {},
   attachmentsByContent: {},
-  activeTab: "overview"
+  activeTab: "overview",
+  sidebarCollapsed: false
 };
 
 const refs = {};
@@ -55,6 +69,7 @@ let toastTimer = null;
 
 function startWorkspaceApp() {
   collectRefs();
+  state.sidebarCollapsed = readSidebarCollapsed();
   bindGlobalUI();
   boot().catch((error) => {
     console.error(error);
@@ -291,6 +306,7 @@ async function loadWorkspace() {
     `/.netlify/functions/workspace-data?creatorId=${encodeURIComponent(state.creatorId)}`
   );
 
+  payload.contents = hydrateContents(payload.contents || []);
   state.workspace = payload;
   state.feedbackByContent = groupBy(payload.feedback || [], "content_id");
   state.attachmentsByContent = groupBy(
@@ -301,6 +317,9 @@ async function loadWorkspace() {
 }
 
 function renderWorkspace() {
+  const dailyLogs = buildDailyLogs();
+  const growthMetrics = buildGrowthMetrics(dailyLogs);
+
   renderHeader();
   renderTabs();
   renderSidebar({
@@ -309,10 +328,12 @@ function renderWorkspace() {
     stats: state.workspace.stats,
     user: state.session,
     activeTab: state.activeTab,
-    creators: state.creators
+    creators: state.creators,
+    collapsed: state.sidebarCollapsed
   });
 
   bindSidebarEvents();
+  applySidebarState();
   renderOverview();
   renderChannelPlanPanel({
     root: refs.strategy,
@@ -324,7 +345,6 @@ function renderWorkspace() {
     contents: state.workspace.contents || [],
     feedbackByContent: state.feedbackByContent,
     attachmentsByContent: state.attachmentsByContent,
-    onStatusChange: handleStatusChange,
     onOpenContent: openContentDetail,
     onCreateContent: openCreateContentModal
   });
@@ -337,7 +357,8 @@ function renderWorkspace() {
   });
   renderTimeline({
     root: refs.timeline,
-    milestones: state.workspace.milestones || [],
+    dailyLogs,
+    growthMetrics,
     onCreateMilestone: openMilestoneModal
   });
 
@@ -347,19 +368,15 @@ function renderWorkspace() {
 
 function renderHeader() {
   const creator = state.workspace?.creator || {};
-  const stats = state.workspace?.stats || {};
 
   refs.header.innerHTML = `
     <div class="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
-      <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">크리에이터 전용 워크스페이스</p>
           <h1 class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
             ${escapeHtml(creator.name || "크리에이터")} <span class="text-slate-400">/ ${escapeHtml(creator.channel_name || creator.id || "")}</span>
           </h1>
-          <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-500">
-            미팅 기록, 대본 초안, 제작 단계, 성장 마일스톤을 한곳에서 함께 관리합니다.
-          </p>
         </div>
         <div class="grid gap-2 sm:grid-cols-3">
           <button
@@ -383,21 +400,6 @@ function renderHeader() {
           >
             마일스톤 추가
           </button>
-        </div>
-      </div>
-
-      <div class="grid gap-4 sm:grid-cols-3">
-        <div class="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-[0_12px_24px_rgba(15,23,42,0.05)]">
-          <p class="text-xs text-slate-500">발행한 영상</p>
-          <p class="mt-2 text-2xl font-semibold text-slate-900">${formatNumber(stats.videosPublished)}</p>
-        </div>
-        <div class="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-[0_12px_24px_rgba(15,23,42,0.05)]">
-          <p class="text-xs text-slate-500">총 조회수</p>
-          <p class="mt-2 text-2xl font-semibold text-slate-900">${formatNumber(stats.totalViews)}</p>
-        </div>
-        <div class="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-[0_12px_24px_rgba(15,23,42,0.05)]">
-          <p class="text-xs text-slate-500">증가한 구독자</p>
-          <p class="mt-2 text-2xl font-semibold text-slate-900">${formatNumber(stats.subscribersGained)}</p>
         </div>
       </div>
     </div>
@@ -444,6 +446,10 @@ function bindSidebarEvents() {
     });
   });
 
+  refs.sidebar.querySelector("[data-sidebar-toggle]")?.addEventListener("click", () => {
+    toggleSidebarCollapsed();
+  });
+
   refs.sidebar.querySelector("[data-sign-out]")?.addEventListener("click", async () => {
     await state.supabase.auth.signOut();
     clearWorkspace();
@@ -462,16 +468,68 @@ function bindSidebarEvents() {
     });
 }
 
+function readSidebarCollapsed() {
+  if (!window.localStorage) {
+    return false;
+  }
+
+  return window.localStorage.getItem("workspaceSidebarCollapsed") === "true";
+}
+
+function persistSidebarCollapsed() {
+  if (!window.localStorage) {
+    return;
+  }
+
+  window.localStorage.setItem(
+    "workspaceSidebarCollapsed",
+    state.sidebarCollapsed ? "true" : "false"
+  );
+}
+
+function applySidebarState() {
+  refs.layout?.classList.toggle(
+    "workspace-layout--sidebar-collapsed",
+    Boolean(state.sidebarCollapsed)
+  );
+}
+
+function toggleSidebarCollapsed() {
+  state.sidebarCollapsed = !state.sidebarCollapsed;
+  persistSidebarCollapsed();
+  renderWorkspace();
+}
+
 function renderOverview() {
   const creator = state.workspace?.creator || {};
   const contents = state.workspace?.contents || [];
   const meetings = state.workspace?.meetings || [];
   const attachments = state.workspace?.attachments || [];
   const activities = buildRecentActivity().slice(0, 8);
-  const pipelineSummary = ["idea", "script", "filming", "editing", "published"].map((status) => ({
-    status,
-    total: contents.filter((item) => item.status === status).length
-  }));
+  const pipelineSummary = CONTENT_PLAN_STAGES.map((stage) => {
+    let total = 0;
+
+    if (stage.id === "idea") {
+      total = contents.filter((item) => Boolean(item.planSections?.idea)).length;
+    } else if (stage.id === "thumbnail") {
+      total = contents.filter(
+        (item) =>
+          Boolean(item.planSections?.thumbnail) ||
+          Boolean(item.thumbnail_signed_url || item.thumbnail_url)
+      ).length;
+    } else {
+      total = contents.filter((item) => {
+        const sectionFilled = Boolean(item.planSections?.[stage.id]);
+        const partFilled = (item.parts || []).some((part) => Boolean(part?.[stage.id]));
+        return sectionFilled || partFilled;
+      }).length;
+    }
+
+    return {
+      label: stage.label,
+      total
+    };
+  });
 
   refs.overview.innerHTML = `
     <div class="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
@@ -535,7 +593,7 @@ function renderOverview() {
               .map(
                 (item) => `
                   <div class="flex items-center justify-between rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-3">
-                    <span class="text-sm font-medium text-slate-600">${escapeHtml(STATUS_LABELS[item.status] || item.status)}</span>
+                    <span class="text-sm font-medium text-slate-600">${escapeHtml(item.label)}</span>
                     <span class="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-500">${item.total}</span>
                   </div>
                 `
@@ -570,7 +628,7 @@ function renderOverview() {
                     .join("")
                 : `
                     <div class="rounded-[22px] border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-400">
-                      각 콘텐츠 카드에서 썸네일, 대본, PDF 노트를 업로드할 수 있습니다.
+                      각 콘텐츠 기획안에서 썸네일, 대본, PDF 노트를 업로드할 수 있습니다.
                     </div>
                   `
             }
@@ -706,14 +764,6 @@ function setActiveTab(tabId) {
   });
 }
 
-async function handleStatusChange(contentId, nextStatus) {
-  await mutateWorkspace("updateContent", {
-    contentId,
-    status: nextStatus
-  });
-  showToast("파이프라인이 업데이트되었습니다.", "success");
-}
-
 async function handleAddFeedback({ contentId, comment }) {
   await mutateWorkspace("createFeedback", {
     contentId,
@@ -794,65 +844,210 @@ function openMeetingModal() {
     });
 }
 
-function openCreateContentModal() {
-  openModal(`
+function renderContentComposer({
+  mode,
+  title,
+  status,
+  publishDate,
+  sections,
+  parts
+}) {
+  const safeSections = createDefaultPlanSections(sections);
+  const submitLabel = mode === "create" ? "기획안 생성" : "기획안 저장";
+  const eyebrow = mode === "create" ? "새 콘텐츠 기획안" : "콘텐츠 기획안 수정";
+  const heading =
+    mode === "create"
+      ? "영상 구조와 파트를 함께 설계하세요"
+      : "영상 구조와 파트 메모를 업데이트하세요";
+
+  return `
     <div class="space-y-5">
       <div class="flex items-start justify-between gap-4">
         <div>
-          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">새 콘텐츠 카드</p>
-          <h2 class="mt-2 text-2xl font-semibold text-slate-950">파이프라인 항목을 추가하세요</h2>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">${escapeHtml(eyebrow)}</p>
+          <h2 class="mt-2 text-2xl font-semibold text-slate-950">${escapeHtml(heading)}</h2>
         </div>
         <button type="button" data-close-modal class="rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-500 transition hover:border-slate-300 hover:bg-slate-50">닫기</button>
       </div>
-      <form class="space-y-4" data-content-form>
-        <div>
-          <label class="block text-sm font-medium text-slate-700" for="content-title">제목</label>
-          <input id="content-title" name="title" class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white" placeholder="ADHD 진단 스토리" required />
-        </div>
-        <div class="grid gap-4 md:grid-cols-2">
+
+      <form class="space-y-5" data-content-form>
+        <div class="rounded-[26px] border border-slate-200 bg-white p-4">
           <div>
-            <label class="block text-sm font-medium text-slate-700" for="content-status">단계</label>
-            <select id="content-status" name="status" class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white">
-              <option value="idea">아이디어</option>
-              <option value="script">대본</option>
-              <option value="filming">촬영</option>
-              <option value="editing">편집</option>
-              <option value="published">발행</option>
-            </select>
+            <label class="block text-sm font-medium text-slate-700" for="content-title">제목</label>
+            <input
+              id="content-title"
+              name="title"
+              value="${escapeHtml(title || "")}"
+              class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white"
+              placeholder="ADHD 진단 스토리"
+              required
+            />
           </div>
-          <div>
-            <label class="block text-sm font-medium text-slate-700" for="content-publish-date">발행일</label>
-            <input id="content-publish-date" name="publishDate" type="date" class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white" />
+
+          <div class="mt-4 grid gap-4 md:grid-cols-2">
+            <div>
+              <label class="block text-sm font-medium text-slate-700" for="content-status">현재 단계</label>
+              <select id="content-status" name="status" class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white">
+                ${CONTENT_STATUS_OPTIONS.map((option) => `<option value="${escapeHtml(option.id)}" ${option.id === status ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700" for="content-publish-date">발행일</label>
+              <input
+                id="content-publish-date"
+                name="publishDate"
+                type="date"
+                value="${escapeHtml(publishDate || "")}"
+                class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-slate-400 focus:bg-white"
+              />
+            </div>
           </div>
         </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700" for="content-concept">콘셉트</label>
-          <textarea id="content-concept" name="concept" rows="4" class="mt-2 w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-slate-400 focus:bg-white" placeholder="후킹 포인트, 시청자 긴장감, 핵심 각도를 정리해 주세요."></textarea>
+
+        <div class="rounded-[26px] border border-slate-200 bg-white p-4">
+          <div class="grid gap-4 xl:grid-cols-2">
+            <div>
+              <label class="block text-sm font-medium text-slate-700" for="content-idea">아이디어 메모</label>
+              <textarea id="content-idea" name="sectionIdea" rows="5" class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-slate-400 focus:bg-white" placeholder="핵심 메시지, 감정선, 훅">${escapeHtml(safeSections.idea)}</textarea>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700" for="content-thumbnail-note">썸네일 메모</label>
+              <textarea id="content-thumbnail-note" name="sectionThumbnail" rows="5" class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-slate-400 focus:bg-white" placeholder="카피, 표정, 색감, 참고 썸네일">${escapeHtml(safeSections.thumbnail)}</textarea>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700" for="content-script-summary">대본 전체 메모</label>
+              <textarea id="content-script-summary" name="sectionScript" rows="5" class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-slate-400 focus:bg-white" placeholder="영상 전체 흐름과 대본 방향">${escapeHtml(safeSections.script)}</textarea>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700" for="content-filming-summary">촬영 전체 메모</label>
+              <textarea id="content-filming-summary" name="sectionFilming" rows="5" class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-slate-400 focus:bg-white" placeholder="촬영 장소, 구도, 필요한 소스">${escapeHtml(safeSections.filming)}</textarea>
+            </div>
+            <div class="xl:col-span-2">
+              <label class="block text-sm font-medium text-slate-700" for="content-editing-summary">편집 전체 메모</label>
+              <textarea id="content-editing-summary" name="sectionEditing" rows="5" class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-slate-400 focus:bg-white" placeholder="컷 편집, 자막, 사운드, 리듬">${escapeHtml(safeSections.editing)}</textarea>
+            </div>
+          </div>
         </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700" for="content-script">대본 초안</label>
-          <textarea id="content-script" name="script" rows="8" class="mt-2 w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-slate-400 focus:bg-white" placeholder="러프 대본이나 비트시트를 적어 주세요."></textarea>
-        </div>
-        <button type="submit" class="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800">카드 생성</button>
+
+        ${renderContentPartEditor(parts || [])}
+
+        <button type="submit" class="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800">${escapeHtml(submitLabel)}</button>
       </form>
     </div>
-  `);
+  `;
+}
 
-  refs.modal
-    .querySelector("[data-content-form]")
-    ?.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const form = new FormData(event.currentTarget);
-      await mutateWorkspace("createContent", {
-        title: String(form.get("title")),
-        status: String(form.get("status")),
-        concept: String(form.get("concept") || ""),
-        script: String(form.get("script") || ""),
-        publishDate: String(form.get("publishDate") || "")
-      });
-      closeModal();
-      showToast("콘텐츠 카드가 생성되었습니다.", "success");
+function bindPartEditor(form) {
+  if (!form) {
+    return;
+  }
+
+  const container = form.querySelector("[data-parts-container]");
+
+  if (!(container instanceof HTMLElement)) {
+    return;
+  }
+
+  const renumber = () => {
+    container.querySelectorAll("[data-part-card]").forEach((card, index) => {
+      const order = card.querySelector("[data-part-order]");
+
+      if (order) {
+        order.textContent = `Part ${String(index + 1).padStart(2, "0")}`;
+      }
     });
+  };
+
+  form.querySelector("[data-add-part]")?.addEventListener("click", () => {
+    container.insertAdjacentHTML(
+      "beforeend",
+      renderContentPartCard(createEmptyPart(), container.querySelectorAll("[data-part-card]").length)
+    );
+    renumber();
+  });
+
+  container.addEventListener("click", (event) => {
+    const target = event.target;
+
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const removeButton = target.closest("[data-remove-part]");
+
+    if (!removeButton) {
+      return;
+    }
+
+    const card = removeButton.closest("[data-part-card]");
+    card?.remove();
+
+    if (container.querySelectorAll("[data-part-card]").length === 0) {
+      container.insertAdjacentHTML("beforeend", renderContentPartCard(createEmptyPart(), 0));
+    }
+
+    renumber();
+  });
+}
+
+function collectContentFormPayload(formElement) {
+  const form = new FormData(formElement);
+  const partIds = form.getAll("partId");
+  const partTitles = form.getAll("partTitle");
+  const partIdeas = form.getAll("partIdea");
+  const partScripts = form.getAll("partScript");
+  const partFilmings = form.getAll("partFilming");
+  const partEditings = form.getAll("partEditing");
+  const parts = partIds.map((value, index) =>
+    createEmptyPart({
+      id: String(value || ""),
+      title: String(partTitles[index] || ""),
+      idea: String(partIdeas[index] || ""),
+      script: String(partScripts[index] || ""),
+      filming: String(partFilmings[index] || ""),
+      editing: String(partEditings[index] || "")
+    })
+  );
+
+  return buildContentSavePayload({
+    contentId: String(form.get("contentId") || ""),
+    title: String(form.get("title") || ""),
+    status: String(form.get("status") || "idea"),
+    publishDate: String(form.get("publishDate") || ""),
+    sections: {
+      idea: String(form.get("sectionIdea") || ""),
+      thumbnail: String(form.get("sectionThumbnail") || ""),
+      script: String(form.get("sectionScript") || ""),
+      filming: String(form.get("sectionFilming") || ""),
+      editing: String(form.get("sectionEditing") || "")
+    },
+    parts
+  });
+}
+
+function openCreateContentModal() {
+  openModal(
+    renderContentComposer({
+      mode: "create",
+      title: "",
+      status: "idea",
+      publishDate: "",
+      sections: createDefaultPlanSections(),
+      parts: [createEmptyPart()]
+    }),
+    { wide: true }
+  );
+
+  const form = refs.modal?.querySelector("[data-content-form]");
+  bindPartEditor(form);
+
+  form?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const payload = collectContentFormPayload(event.currentTarget);
+    await mutateWorkspace("createContent", payload);
+    closeModal();
+    showToast("콘텐츠 기획안이 생성되었습니다.", "success");
+  });
 }
 
 function openMilestoneModal() {
@@ -904,7 +1099,7 @@ function openContentDetail(contentId) {
   const content = (state.workspace?.contents || []).find((item) => item.id === contentId);
 
   if (!content) {
-    showToast("콘텐츠 카드를 찾을 수 없습니다.", "error");
+    showToast("콘텐츠 기획안을 찾을 수 없습니다.", "error");
     return;
   }
 
@@ -912,25 +1107,19 @@ function openContentDetail(contentId) {
   const attachments = state.attachmentsByContent[contentId] || [];
 
   openModal(renderContentDetail(content, feedback, attachments), { wide: true });
+  bindPartEditor(refs.modal?.querySelector("[data-content-edit-form]"));
 
   refs.modal
     .querySelector("[data-content-edit-form]")
     ?.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const form = new FormData(event.currentTarget);
+      const payload = collectContentFormPayload(event.currentTarget);
       await mutateWorkspace(
         "updateContent",
-        {
-          contentId: String(form.get("contentId")),
-          title: String(form.get("title")),
-          status: String(form.get("status")),
-          concept: String(form.get("concept") || ""),
-          script: String(form.get("script") || ""),
-          publishDate: String(form.get("publishDate") || "")
-        },
+        payload,
         { reopenContentId: contentId }
       );
-      showToast("콘텐츠가 업데이트되었습니다.", "success");
+      showToast("콘텐츠 기획안이 업데이트되었습니다.", "success");
     });
 
   refs.modal
@@ -1134,16 +1323,74 @@ function showToast(message, tone = "success") {
 }
 
 function buildRecentActivity() {
-  const meetings = (state.workspace?.meetings || []).map((meeting) => ({
+  return buildActivityEntries();
+}
+
+function buildActivityEntries() {
+  const contents = state.workspace?.contents || [];
+  const meetings = state.workspace?.meetings || [];
+  const feedback = state.workspace?.feedback || [];
+  const milestones = state.workspace?.milestones || [];
+  const attachments = state.workspace?.attachments || [];
+  const contentById = new Map(contents.map((item) => [item.id, item]));
+
+  const contentEntries = contents.flatMap((content) => {
+    const entries = [];
+    const preview = truncateText(
+      content.planSections?.idea ||
+        content.planSections?.script ||
+        content.parts?.find((part) => part.title)?.title ||
+        "새 기획안이 추가되었습니다.",
+      80
+    );
+
+    if (content.created_at) {
+      entries.push({
+        date: content.created_at,
+        category: "기획안",
+        title: "새 콘텐츠 기획안 생성",
+        description: `${content.title} · ${preview}`
+      });
+    }
+
+    const createdDateKey = toDateKey(content.created_at);
+    const updatedDateKey = toDateKey(content.updated_at);
+
+    if (content.updated_at && updatedDateKey && updatedDateKey !== createdDateKey) {
+      const statusLabel = STATUS_LABELS[content.status] || content.status;
+      entries.push({
+        date: content.updated_at,
+        category: "기획안",
+        title: `${statusLabel} 단계 업데이트`,
+        description: `${content.title} · 현재 ${statusLabel} 단계`
+      });
+    }
+
+    if (content.publish_date || content.status === "published") {
+      entries.push({
+        date: content.publish_date || content.updated_at || content.created_at,
+        category: "발행",
+        title: "영상 발행",
+        description: `${content.title} 업로드`
+      });
+    }
+
+    return entries;
+  });
+
+  const meetingEntries = meetings.map((meeting) => ({
     date: meeting.date || meeting.created_at,
-    title: `${MEETING_TYPE_LABELS[meeting.meeting_type] || meeting.meeting_type} 기록`,
+    category: "미팅",
+    title: `${MEETING_TYPE_LABELS[meeting.meeting_type] || meeting.meeting_type} 미팅`,
     description: meeting.summary || "미팅 노트가 추가되었습니다."
   }));
 
-  const feedback = (state.workspace?.feedback || []).map((item) => {
-    const content = (state.workspace?.contents || []).find((entry) => entry.id === item.content_id);
+  const feedbackEntries = feedback.map((item) => {
+    const content = contentById.get(item.content_id);
+
     return {
       date: item.created_at,
+      category: "피드백",
       title: `${item.author || "워크스페이스 사용자"}님의 피드백`,
       description: content
         ? `${content.title} · ${truncateText(item.comment, 80)}`
@@ -1151,21 +1398,270 @@ function buildRecentActivity() {
     };
   });
 
-  const milestones = (state.workspace?.milestones || []).map((item) => ({
+  const milestoneEntries = milestones.map((item) => ({
     date: item.date || item.created_at,
+    category: "마일스톤",
     title: item.title,
     description: item.description || "마일스톤이 추가되었습니다."
   }));
 
-  const attachments = (state.workspace?.attachments || []).map((item) => ({
+  const attachmentEntries = attachments.map((item) => ({
     date: item.created_at,
+    category: "파일",
     title: ATTACHMENT_LABELS[item.kind] || "첨부 파일 업로드",
     description: item.title || item.file_name || "새 파일이 추가되었습니다."
   }));
 
-  return [...meetings, ...feedback, ...milestones, ...attachments].sort(
-    (left, right) => new Date(right.date).getTime() - new Date(left.date).getTime()
+  return [
+    ...contentEntries,
+    ...meetingEntries,
+    ...feedbackEntries,
+    ...milestoneEntries,
+    ...attachmentEntries
+  ]
+    .filter((item) => toDateKey(item.date))
+    .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
+}
+
+function buildDailyLogs() {
+  const grouped = buildActivityEntries().reduce((accumulator, item) => {
+    const dateKey = toDateKey(item.date);
+
+    if (!dateKey) {
+      return accumulator;
+    }
+
+    if (!accumulator.has(dateKey)) {
+      accumulator.set(dateKey, {
+        date: dateKey,
+        items: []
+      });
+    }
+
+    accumulator.get(dateKey).items.push(item);
+    return accumulator;
+  }, new Map());
+
+  return Array.from(grouped.values())
+    .map((entry) => ({
+      ...entry,
+      items: entry.items.sort(
+        (left, right) => new Date(right.date).getTime() - new Date(left.date).getTime()
+      )
+    }))
+    .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
+}
+
+function buildGrowthMetrics(dailyLogs = buildDailyLogs()) {
+  const creator = state.workspace?.creator || {};
+  const contents = state.workspace?.contents || [];
+  const stats = state.workspace?.stats || {};
+  const todayKey = toDateKey(new Date());
+  const candidateKeys = [
+    todayKey,
+    toDateKey(creator.join_date),
+    ...dailyLogs.map((item) => item.date),
+    ...contents.map((item) => toDateKey(item.publish_date || item.updated_at || item.created_at))
+  ].filter(Boolean);
+  const startKey = candidateKeys.reduce(
+    (current, key) => (!current || key < current ? key : current),
+    null
+  ) || todayKey;
+  const endKey = candidateKeys.reduce(
+    (current, key) => (!current || key > current ? key : current),
+    null
+  ) || todayKey;
+  const dateKeys = buildDateKeys(startKey, endKey);
+  const weightsByDay = Object.fromEntries(dateKeys.map((key) => [key, 0]));
+  const publishedByDay = contents.reduce((accumulator, item) => {
+    if (item.status !== "published" && !item.publish_date) {
+      return accumulator;
+    }
+
+    const dateKey = toDateKey(item.publish_date || item.updated_at || item.created_at);
+
+    if (!dateKey) {
+      return accumulator;
+    }
+
+    accumulator[dateKey] = (accumulator[dateKey] || 0) + 1;
+    return accumulator;
+  }, {});
+
+  dailyLogs.forEach((log) => {
+    weightsByDay[log.date] =
+      (weightsByDay[log.date] || 0) +
+      log.items.reduce((sum, item) => sum + getActivityWeight(item.category), 0);
+  });
+
+  if (dateKeys.length > 0 && dateKeys.every((key) => Number(weightsByDay[key] || 0) === 0)) {
+    weightsByDay[dateKeys[dateKeys.length - 1]] = 1;
+  }
+
+  const videosPublishedDaily = dateKeys.map((key) => Number(publishedByDay[key] || 0));
+  const totalViewsDaily = distributeMetricByWeights(
+    Number(stats.totalViews || 0),
+    dateKeys,
+    weightsByDay
   );
+  const subscribersDaily = distributeMetricByWeights(
+    Number(stats.subscribersGained || 0),
+    dateKeys,
+    weightsByDay
+  );
+
+  return [
+    {
+      id: "videosPublished",
+      label: "Video Published",
+      unit: "편",
+      currentLabel: "누적 발행 영상",
+      deltaLabel: "당일 발행",
+      description:
+        "발행일이 있으면 해당 날짜를, 없으면 마지막 수정일을 기준으로 실제 발행 수를 계산합니다.",
+      points: buildMetricPoints(dateKeys, videosPublishedDaily)
+    },
+    {
+      id: "totalViews",
+      label: "Total View",
+      unit: "뷰",
+      currentLabel: "누적 조회수",
+      deltaLabel: "당일 증가",
+      description:
+        "날짜별 조회수 이력이 없어 현재 총 조회수를 워크스페이스 활동량 기준으로 날짜별 배분한 추정치입니다.",
+      points: buildMetricPoints(dateKeys, totalViewsDaily)
+    },
+    {
+      id: "subscribersGained",
+      label: "Subscribers Gained",
+      unit: "명",
+      currentLabel: "누적 구독자 증가",
+      deltaLabel: "당일 증가",
+      description:
+        "날짜별 구독자 이력이 없어 현재 누적 증가 수를 워크스페이스 활동량 기준으로 날짜별 배분한 추정치입니다.",
+      points: buildMetricPoints(dateKeys, subscribersDaily)
+    }
+  ];
+}
+
+function getActivityWeight(category) {
+  switch (category) {
+    case "발행":
+      return 6;
+    case "마일스톤":
+      return 4;
+    case "미팅":
+      return 3;
+    case "기획안":
+      return 2;
+    case "피드백":
+      return 1;
+    case "파일":
+      return 1;
+    default:
+      return 1;
+  }
+}
+
+function buildMetricPoints(dateKeys, dailyValues) {
+  let cumulative = 0;
+
+  return dateKeys.map((dateKey, index) => {
+    const delta = Number(dailyValues[index] || 0);
+    cumulative += delta;
+
+    return {
+      date: dateKey,
+      delta,
+      cumulative
+    };
+  });
+}
+
+function distributeMetricByWeights(total, dateKeys, weightsByDay) {
+  const normalizedTotal = Math.max(0, Math.round(Number(total || 0)));
+
+  if (dateKeys.length === 0) {
+    return [];
+  }
+
+  const weights = dateKeys.map((key) => Math.max(0, Number(weightsByDay[key] || 0)));
+  let totalWeight = weights.reduce((sum, value) => sum + value, 0);
+
+  if (totalWeight <= 0) {
+    weights[weights.length - 1] = 1;
+    totalWeight = 1;
+  }
+
+  const rawShares = weights.map((weight) => (normalizedTotal * weight) / totalWeight);
+  const baseShares = rawShares.map((value) => Math.floor(value));
+  let remaining = normalizedTotal - baseShares.reduce((sum, value) => sum + value, 0);
+
+  rawShares
+    .map((value, index) => ({
+      index,
+      fraction: value - baseShares[index],
+      weight: weights[index]
+    }))
+    .sort(
+      (left, right) =>
+        right.fraction - left.fraction ||
+        right.weight - left.weight ||
+        right.index - left.index
+    )
+    .forEach((item) => {
+      if (remaining > 0) {
+        baseShares[item.index] += 1;
+        remaining -= 1;
+      }
+    });
+
+  return baseShares;
+}
+
+function buildDateKeys(startKey, endKey) {
+  if (!startKey || !endKey) {
+    return [];
+  }
+
+  const keys = [];
+  const cursor = new Date(`${startKey}T12:00:00`);
+  const end = new Date(`${endKey}T12:00:00`);
+
+  while (cursor.getTime() <= end.getTime()) {
+    keys.push(toDateKey(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return keys;
+}
+
+function toDateKey(value) {
+  if (!value) {
+    return "";
+  }
+
+  if (value instanceof Date) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const day = String(value.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  const raw = String(value);
+  const directMatch = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+
+  if (directMatch) {
+    return directMatch[1];
+  }
+
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+
+  return toDateKey(parsed);
 }
 
 function groupBy(items, key) {

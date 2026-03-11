@@ -159,7 +159,11 @@ export function WorkspaceShell() {
         <div id="workspace-toast" className="workspace-toast" />
       </div>
 
-      <Script type="module" src="/workspace/workspace.js" strategy="afterInteractive" />
+      <Script
+        type="module"
+        src="/workspace/workspace.js?v=20260311c"
+        strategy="afterInteractive"
+      />
     </>
   );
 }
