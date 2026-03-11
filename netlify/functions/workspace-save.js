@@ -19,6 +19,38 @@ async function findContentForCreator(supabase, creatorId, contentId) {
   );
 }
 
+async function removeContentAttachmentsFromStorage(supabase, creatorId, contentId) {
+  const { data, error } = await supabase
+    .from("attachments")
+    .select("storage_bucket, storage_path")
+    .eq("creator_id", creatorId)
+    .eq("content_id", contentId);
+
+  if (error) {
+    throw error;
+  }
+
+  const pathsByBucket = new Map();
+
+  (data || []).forEach((attachment) => {
+    if (!attachment?.storage_bucket || !attachment?.storage_path) {
+      return;
+    }
+
+    const paths = pathsByBucket.get(attachment.storage_bucket) || [];
+    paths.push(attachment.storage_path);
+    pathsByBucket.set(attachment.storage_bucket, paths);
+  });
+
+  for (const [bucket, paths] of pathsByBucket.entries()) {
+    const { error: removeError } = await supabase.storage.from(bucket).remove(paths);
+
+    if (removeError) {
+      throw removeError;
+    }
+  }
+}
+
 exports.handler = async function handler(event) {
   try {
     if (event.httpMethod !== "POST") {
@@ -109,6 +141,31 @@ exports.handler = async function handler(event) {
         }
 
         result = data;
+        break;
+      }
+
+      case "deleteContent": {
+        const content = await findContentForCreator(supabase, creatorId, payload.contentId);
+
+        if (!content) {
+          throw new HttpError(404, "Content card was not found.");
+        }
+
+        await removeContentAttachmentsFromStorage(supabase, creatorId, payload.contentId);
+
+        const { error } = await supabase
+          .from("contents")
+          .delete()
+          .eq("id", payload.contentId)
+          .eq("creator_id", creatorId);
+
+        if (error) {
+          throw error;
+        }
+
+        result = {
+          id: payload.contentId
+        };
         break;
       }
 
