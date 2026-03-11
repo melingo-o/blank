@@ -217,7 +217,7 @@ export function PortfolioSection({ initialItems }: PortfolioSectionProps) {
               !comingSoon && Boolean(displayCreator.instagram_handle)
             const displayImage = comingSoonImage ?? displayCreator.image_url
             const imageClassName = isChaeheeFeature
-              ? "h-full w-full bg-[#eceef2] object-contain object-center p-4 transition-transform duration-700 group-hover:scale-[1.02]"
+              ? "h-full w-full object-cover object-[center_20%] transition-transform duration-700 group-hover:scale-105"
               : "h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
 
             const cardContent = (
