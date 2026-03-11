@@ -14,6 +14,10 @@ type PortfolioDisplay = {
   instagram_handle?: string | null
 }
 
+const CHAEHEE_YOUTUBE_URL =
+  "https://www.youtube.com/@%EC%A0%95%EC%8B%A0%EC%B2%B4%EB%A6%BF_ADHD"
+const CHAEHEE_PROFILE_IMAGE = "/chaehee-people.jpg"
+
 const creators: PortfolioDisplay[] = [
   {
     name: "Jina",
@@ -177,34 +181,45 @@ export function PortfolioSection({ initialItems }: PortfolioSectionProps) {
 
         <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((creator, index) => {
+            const isChaeheeFeature = index === 0
+            const linkedUrl = isChaeheeFeature ? CHAEHEE_YOUTUBE_URL : null
+            const displayCreator = isChaeheeFeature
+              ? {
+                  ...creator,
+                  name: "채희",
+                  niche: "ADHD CREATOR",
+                  image_url: CHAEHEE_PROFILE_IMAGE,
+                  instagram_handle: null
+                }
+              : creator
             const comingSoon =
-              index === 0
-                ? { month: "2026. 02" }
-                : index === 1
-                  ? { month: "2026. 04" }
-                  : index === 2
-                    ? { month: "2026. 08" }
-                    : null
+              index === 1
+                ? { month: "2026. 04" }
+                : index === 2
+                  ? { month: "2026. 08" }
+                  : null
             const comingSoonImage =
               index === 1
                 ? "/coming-soon-2026-04.png"
                 : index === 2
                   ? "/coming-soon-2026-08.png"
                   : null
-            const displayName = comingSoon?.month ?? creator.name
-            const displayNiche = comingSoon ? "COMING SOON" : creator.niche
+            const displayName = comingSoon?.month ?? displayCreator.name
+            const displayNiche = comingSoon
+              ? "COMING SOON"
+              : displayCreator.niche
             const showInstagram =
-              !comingSoon && Boolean(creator.instagram_handle)
-            const displayImage = comingSoonImage ?? creator.image_url
+              !comingSoon && Boolean(displayCreator.instagram_handle)
+            const displayImage = comingSoonImage ?? displayCreator.image_url
 
-            return (
+            const cardContent = (
               <article
-                key={creator.id ?? creator.name}
+                key={displayCreator.id ?? displayCreator.name}
                 className={`group relative overflow-hidden rounded-3xl border border-border/60 bg-card boty-shadow transition-all duration-700 ease-out ${
                   isVisible
                     ? "translate-y-0 opacity-100"
                     : "-translate-y-6 opacity-0"
-                }`}
+                } ${linkedUrl ? "cursor-pointer" : ""}`}
                 style={{ transitionDelay: `${index * 120}ms` }}
               >
               <div className="relative h-72 w-full overflow-hidden">
@@ -244,15 +259,28 @@ export function PortfolioSection({ initialItems }: PortfolioSectionProps) {
                     <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/30 to-black/70 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                     <div className="absolute inset-0 flex flex-col justify-end p-6 text-white opacity-0 transition-opacity duration-300 group-hover:opacity-100">
                       <p className="text-xs uppercase tracking-[0.3em] text-white/70">
-                        {creator.niche}
+                        {displayCreator.niche}
                       </p>
                       <div className="mt-2 flex items-center justify-between">
-                        <span className="text-lg font-semibold">
-                          {creator.followers}
-                        </span>
-                        <span className="text-sm text-white/80">
-                          {creator.growth}
-                        </span>
+                        {linkedUrl ? (
+                          <>
+                            <span className="text-lg font-semibold">
+                              YouTube
+                            </span>
+                            <span className="text-sm text-white/80">
+                              채널 바로가기
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-lg font-semibold">
+                              {displayCreator.followers}
+                            </span>
+                            <span className="text-sm text-white/80">
+                              {displayCreator.growth}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </>
@@ -263,11 +291,11 @@ export function PortfolioSection({ initialItems }: PortfolioSectionProps) {
                   <p className="text-base font-semibold text-foreground">
                     {displayName}
                   </p>
-                  {showInstagram && creator.instagram_handle ? (
+                  {showInstagram && displayCreator.instagram_handle ? (
                     <p className="text-[10px] text-muted-foreground">
-                      {creator.instagram_handle.startsWith("@")
-                        ? creator.instagram_handle
-                        : `@${creator.instagram_handle}`}
+                      {displayCreator.instagram_handle.startsWith("@")
+                        ? displayCreator.instagram_handle
+                        : `@${displayCreator.instagram_handle}`}
                     </p>
                   ) : null}
                   <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
@@ -276,11 +304,26 @@ export function PortfolioSection({ initialItems }: PortfolioSectionProps) {
                 </div>
                 {!comingSoon && (
                   <span className="rounded-full border border-border px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-                    View
+                    {linkedUrl ? "YouTube" : "View"}
                   </span>
                 )}
               </div>
-            </article>
+              </article>
+            )
+
+            return linkedUrl ? (
+              <a
+                key={displayCreator.id ?? displayCreator.name}
+                href={linkedUrl}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`${displayCreator.name} 유튜브 채널로 이동`}
+                className="block"
+              >
+                {cardContent}
+              </a>
+            ) : (
+              cardContent
             )
           })}
         </div>
