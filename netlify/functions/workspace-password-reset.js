@@ -74,6 +74,13 @@ exports.handler = async function handler(event) {
     );
 
     if (error) {
+      if (/rate limit/i.test(String(error.message || ""))) {
+        throw new HttpError(
+          429,
+          "재설정 메일 요청이 너무 많아 잠시 막혔습니다. 잠시 후 다시 시도하거나, 급하면 Supabase Dashboard > Authentication > Users에서 관리자 비밀번호를 직접 변경해 주세요."
+        );
+      }
+
       throw new HttpError(400, error.message);
     }
 

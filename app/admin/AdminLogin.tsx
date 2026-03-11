@@ -18,7 +18,6 @@ type LoginValues = z.infer<typeof loginSchema>
 export default function AdminLogin() {
   const router = useRouter()
   const [message, setMessage] = useState<string | null>(null)
-  const [notice, setNotice] = useState<string | null>(null)
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -29,7 +28,6 @@ export default function AdminLogin() {
 
   const onSubmit = async (values: LoginValues) => {
     setMessage(null)
-    setNotice(null)
 
     const response = await fetch("/.netlify/functions/workspace-password-login", {
       method: "POST",
@@ -64,33 +62,10 @@ export default function AdminLogin() {
     router.refresh()
   }
 
-  const onSendResetEmail = async () => {
-    setMessage(null)
-    setNotice(null)
-
-    const loginId = form.getValues("loginId").trim() || "admin"
-    const response = await fetch("/.netlify/functions/workspace-password-reset", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        loginId,
-        mode: "admin",
-        redirectTo: `${window.location.origin}/admin/reset-password`
-      })
-    })
-    const payload = await response.json().catch(() => ({}))
-
-    if (!response.ok) {
-      setMessage(payload.error || "Unable to send the password reset email.")
-      return
-    }
-
-    setNotice(
-      payload.message ||
-        `Password reset email sent${payload.emailHint ? ` to ${payload.emailHint}` : ""}.`
-    )
+  const onMoveToForgotPassword = () => {
+    const loginId = form.getValues("loginId").trim()
+    const query = loginId ? `?loginId=${encodeURIComponent(loginId)}` : ""
+    router.push(`/admin/forgot-password${query}`)
   }
 
   return (
@@ -150,9 +125,6 @@ export default function AdminLogin() {
           {message && (
             <p className="mt-4 text-sm text-destructive">{message}</p>
           )}
-          {notice && (
-            <p className="mt-4 text-sm text-foreground">{notice}</p>
-          )}
 
           <button
             type="submit"
@@ -165,9 +137,9 @@ export default function AdminLogin() {
             type="button"
             className="mt-3 w-full border border-border/60 px-6 py-4 text-sm uppercase tracking-[0.25em] text-foreground boty-transition hover:bg-muted"
             disabled={form.formState.isSubmitting}
-            onClick={onSendResetEmail}
+            onClick={onMoveToForgotPassword}
           >
-            Send reset email
+            비밀번호 찾기
           </button>
         </form>
       </div>
