@@ -146,7 +146,7 @@
 .workspace-modal__panel {
   position: relative;
   z-index: 1;
-  width: min(100%, 1180px);
+  width: min(100%, 960px);
   max-height: calc(100vh - 3rem);
   overflow: auto;
   border: 1px solid rgba(226, 232, 240, 0.9);
@@ -156,6 +156,46 @@
   box-shadow:
     0 24px 44px rgba(15, 23, 42, 0.18),
     0 12px 28px rgba(15, 23, 42, 0.1);
+}
+
+.workspace-modal__panel--narrow {
+  width: min(100%, 820px);
+}
+
+.workspace-modal__panel--wide {
+  width: min(100%, 1440px);
+}
+
+.workspace-note-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 75;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.workspace-note-viewer__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.3);
+  backdrop-filter: blur(6px);
+}
+
+.workspace-note-viewer__panel {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 1120px);
+  max-height: calc(100vh - 4rem);
+  overflow: auto;
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  border-radius: 32px;
+  background: rgba(255, 255, 255, 0.99);
+  padding: 1.5rem;
+  box-shadow:
+    0 28px 60px rgba(15, 23, 42, 0.24),
+    0 14px 32px rgba(15, 23, 42, 0.12);
 }
 
 .workspace-toast {
@@ -246,6 +286,15 @@
   }
 
   .workspace-modal__panel {
+    max-height: calc(100vh - 1.5rem);
+    padding: 1rem;
+  }
+
+  .workspace-note-viewer {
+    padding: 0.75rem;
+  }
+
+  .workspace-note-viewer__panel {
     max-height: calc(100vh - 1.5rem);
     padding: 1rem;
   }

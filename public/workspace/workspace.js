@@ -7,7 +7,7 @@ import {
   renderContentDetail,
   renderContentPartCard,
   renderContentPartEditor
-} from "/components/comments.js?v=20260311d";
+} from "/components/comments.js?v=20260318a";
 import {
   CONTENT_PLAN_STAGES,
   CONTENT_STATUS_OPTIONS,
@@ -126,6 +126,17 @@ function bindGlobalUI() {
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && refs.modal && !refs.modal.classList.contains("hidden")) {
+      const noteViewerClose = refs.modal.querySelector("[data-close-note-viewer]");
+
+      if (
+        noteViewerClose instanceof HTMLButtonElement &&
+        !noteViewerClose.closest("[data-note-viewer]")?.classList.contains("hidden")
+      ) {
+        event.preventDefault();
+        noteViewerClose.click();
+        return;
+      }
+
       closeModal();
     }
   });
@@ -869,6 +880,47 @@ function openMeetingModal() {
     });
 }
 
+function renderExpandableTextareaField({
+  id,
+  name,
+  label,
+  value,
+  placeholder,
+  viewerKey,
+  viewerTitle,
+  viewerCaption = "",
+  rows = 6,
+  wrapperClass = ""
+}) {
+  return `
+    <div${wrapperClass ? ` class="${wrapperClass}"` : ""}>
+      <div class="flex items-center justify-between gap-3">
+        <label class="block text-sm font-medium text-slate-700" for="${escapeHtml(id)}">${escapeHtml(label)}</label>
+        <button
+          type="button"
+          data-open-note-viewer
+          data-viewer-target="${escapeHtml(viewerKey)}"
+          class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-100"
+        >
+          전체 보기
+        </button>
+      </div>
+      <textarea
+        id="${escapeHtml(id)}"
+        name="${escapeHtml(name)}"
+        rows="${rows}"
+        data-viewer-source
+        data-viewer-key="${escapeHtml(viewerKey)}"
+        data-viewer-label="${escapeHtml(label)}"
+        data-viewer-title="${escapeHtml(viewerTitle || label)}"
+        data-viewer-caption="${escapeHtml(viewerCaption)}"
+        class="mt-2 min-h-[168px] w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-slate-400 focus:bg-white"
+        placeholder="${escapeHtml(placeholder)}"
+      >${escapeHtml(value || "")}</textarea>
+    </div>
+  `;
+}
+
 function renderContentComposer({
   mode,
   title,
@@ -931,26 +983,57 @@ function renderContentComposer({
 
         <div class="rounded-[26px] border border-slate-200 bg-white p-4">
           <div class="grid gap-4 xl:grid-cols-2">
-            <div>
-              <label class="block text-sm font-medium text-slate-700" for="content-idea">아이디어 메모</label>
-              <textarea id="content-idea" name="sectionIdea" rows="5" class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-slate-400 focus:bg-white" placeholder="핵심 메시지, 감정선, 훅">${escapeHtml(safeSections.idea)}</textarea>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-slate-700" for="content-thumbnail-note">썸네일 메모</label>
-              <textarea id="content-thumbnail-note" name="sectionThumbnail" rows="5" class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-slate-400 focus:bg-white" placeholder="카피, 표정, 색감, 참고 썸네일">${escapeHtml(safeSections.thumbnail)}</textarea>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-slate-700" for="content-script-summary">대본 전체 메모</label>
-              <textarea id="content-script-summary" name="sectionScript" rows="5" class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-slate-400 focus:bg-white" placeholder="영상 전체 흐름과 대본 방향">${escapeHtml(safeSections.script)}</textarea>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-slate-700" for="content-filming-summary">촬영 전체 메모</label>
-              <textarea id="content-filming-summary" name="sectionFilming" rows="5" class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-slate-400 focus:bg-white" placeholder="촬영 장소, 구도, 필요한 소스">${escapeHtml(safeSections.filming)}</textarea>
-            </div>
-            <div class="xl:col-span-2">
-              <label class="block text-sm font-medium text-slate-700" for="content-editing-summary">편집 전체 메모</label>
-              <textarea id="content-editing-summary" name="sectionEditing" rows="5" class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-slate-400 focus:bg-white" placeholder="컷 편집, 자막, 사운드, 리듬">${escapeHtml(safeSections.editing)}</textarea>
-            </div>
+            ${renderExpandableTextareaField({
+              id: "content-idea",
+              name: "sectionIdea",
+              label: "아이디어 메모",
+              value: safeSections.idea,
+              placeholder: "핵심 메시지, 감정선, 훅",
+              viewerKey: "composer:section:idea",
+              viewerTitle: "아이디어 메모",
+              viewerCaption: "전체 메모"
+            })}
+            ${renderExpandableTextareaField({
+              id: "content-thumbnail-note",
+              name: "sectionThumbnail",
+              label: "썸네일 메모",
+              value: safeSections.thumbnail,
+              placeholder: "카피, 표정, 색감, 참고 썸네일",
+              viewerKey: "composer:section:thumbnail",
+              viewerTitle: "썸네일 메모",
+              viewerCaption: "전체 메모"
+            })}
+            ${renderExpandableTextareaField({
+              id: "content-script-summary",
+              name: "sectionScript",
+              label: "대본 전체 메모",
+              value: safeSections.script,
+              placeholder: "영상 전체 흐름과 대본 방향",
+              viewerKey: "composer:section:script",
+              viewerTitle: "대본 전체 메모",
+              viewerCaption: "전체 메모"
+            })}
+            ${renderExpandableTextareaField({
+              id: "content-filming-summary",
+              name: "sectionFilming",
+              label: "촬영 전체 메모",
+              value: safeSections.filming,
+              placeholder: "촬영 장소, 구도, 필요한 소스",
+              viewerKey: "composer:section:filming",
+              viewerTitle: "촬영 전체 메모",
+              viewerCaption: "전체 메모"
+            })}
+            ${renderExpandableTextareaField({
+              id: "content-editing-summary",
+              name: "sectionEditing",
+              label: "편집 전체 메모",
+              value: safeSections.editing,
+              placeholder: "컷 편집, 자막, 사운드, 리듬",
+              viewerKey: "composer:section:editing",
+              viewerTitle: "편집 전체 메모",
+              viewerCaption: "전체 메모",
+              wrapperClass: "xl:col-span-2"
+            })}
           </div>
         </div>
 
@@ -1015,6 +1098,331 @@ function bindPartEditor(form) {
   });
 }
 
+function buildNoteViewerMarkup() {
+  return `
+    <div class="workspace-note-viewer hidden" data-note-viewer>
+      <div class="workspace-note-viewer__backdrop" data-note-viewer-backdrop></div>
+      <div class="workspace-note-viewer__panel workspace-scrollbar">
+        <div class="flex items-start justify-between gap-4">
+          <div class="min-w-0">
+            <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500" data-note-viewer-caption>
+              전체 메모
+            </p>
+            <h3 class="mt-2 text-2xl font-semibold text-slate-950" data-note-viewer-title>
+              메모 전체 보기
+            </h3>
+          </div>
+          <button
+            type="button"
+            data-close-note-viewer
+            class="rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-500 transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            닫기
+          </button>
+        </div>
+
+        <textarea
+          data-note-viewer-textarea
+          rows="18"
+          class="mt-6 min-h-[420px] w-full rounded-[28px] border border-slate-200 bg-slate-50 px-5 py-4 text-base leading-8 text-slate-800 outline-none transition focus:border-slate-400 focus:bg-white"
+        ></textarea>
+
+        <div class="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p class="text-sm text-slate-500" data-note-viewer-index>1 / 1</p>
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              data-note-viewer-prev
+              class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-100"
+            >
+              &larr; 이전
+            </button>
+            <button
+              type="button"
+              data-note-viewer-next
+              class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              다음 &rarr;
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function bindExpandedNoteViewer(modalRoot) {
+  if (!(modalRoot instanceof HTMLElement)) {
+    return;
+  }
+
+  const panel = modalRoot.querySelector(".workspace-modal__panel");
+
+  if (!(panel instanceof HTMLElement)) {
+    return;
+  }
+
+  if (!panel.querySelector("[data-note-viewer]")) {
+    panel.insertAdjacentHTML("beforeend", buildNoteViewerMarkup());
+  }
+
+  const viewer = panel.querySelector("[data-note-viewer]");
+  const viewerTextarea = panel.querySelector("[data-note-viewer-textarea]");
+  const viewerTitle = panel.querySelector("[data-note-viewer-title]");
+  const viewerCaption = panel.querySelector("[data-note-viewer-caption]");
+  const viewerIndex = panel.querySelector("[data-note-viewer-index]");
+  const prevButton = panel.querySelector("[data-note-viewer-prev]");
+  const nextButton = panel.querySelector("[data-note-viewer-next]");
+
+  if (
+    !(viewer instanceof HTMLElement) ||
+    !(viewerTextarea instanceof HTMLTextAreaElement) ||
+    !(viewerTitle instanceof HTMLElement) ||
+    !(viewerCaption instanceof HTMLElement) ||
+    !(viewerIndex instanceof HTMLElement) ||
+    !(prevButton instanceof HTMLButtonElement) ||
+    !(nextButton instanceof HTMLButtonElement)
+  ) {
+    return;
+  }
+
+  const getSources = () =>
+    Array.from(panel.querySelectorAll("[data-viewer-source]")).filter(
+      (node) => node instanceof HTMLTextAreaElement
+    );
+
+  let currentIndex = -1;
+
+  const syncCurrentSource = () => {
+    if (currentIndex < 0) {
+      return;
+    }
+
+    const currentSource = getSources()[currentIndex];
+
+    if (currentSource instanceof HTMLTextAreaElement) {
+      currentSource.value = viewerTextarea.value;
+    }
+  };
+
+  const getSourceTitle = (source) => {
+    const fallbackTitle = source.dataset.viewerTitle || source.dataset.viewerLabel || "메모";
+    const partCard = source.closest("[data-part-card]");
+
+    if (!(partCard instanceof HTMLElement)) {
+      return fallbackTitle;
+    }
+
+    const partTitleInput = partCard.querySelector('input[name="partTitle"]');
+    const partOrder = partCard.querySelector("[data-part-order]")?.textContent?.trim();
+    const partTitle =
+      partTitleInput instanceof HTMLInputElement
+        ? partTitleInput.value.trim()
+        : "";
+
+    return `${partTitle || partOrder || "파트"} · ${source.dataset.viewerLabel || fallbackTitle}`;
+  };
+
+  const getSourceCaption = (source) => {
+    if (source.closest("[data-part-card]")) {
+      return source.dataset.viewerCaption || "파트 메모";
+    }
+
+    return source.dataset.viewerCaption || "전체 메모";
+  };
+
+  const updateNavState = (sources) => {
+    prevButton.disabled = currentIndex <= 0;
+    nextButton.disabled = currentIndex >= sources.length - 1;
+
+    [prevButton, nextButton].forEach((button) => {
+      button.classList.toggle("opacity-40", button.disabled);
+      button.classList.toggle("cursor-not-allowed", button.disabled);
+    });
+  };
+
+  const renderViewerState = () => {
+    const sources = getSources();
+
+    if (!sources.length) {
+      viewer.classList.add("hidden");
+      currentIndex = -1;
+      return;
+    }
+
+    currentIndex = Math.max(0, Math.min(currentIndex, sources.length - 1));
+    const source = sources[currentIndex];
+
+    viewerTitle.textContent = getSourceTitle(source);
+    viewerCaption.textContent = getSourceCaption(source);
+    viewerTextarea.value = source.value;
+    viewerIndex.textContent = `${currentIndex + 1} / ${sources.length}`;
+    updateNavState(sources);
+  };
+
+  const openViewerAt = (index) => {
+    const sources = getSources();
+
+    if (!sources.length) {
+      return;
+    }
+
+    currentIndex = Math.max(0, Math.min(index, sources.length - 1));
+    viewer.classList.remove("hidden");
+    renderViewerState();
+    viewerTextarea.focus();
+    viewerTextarea.setSelectionRange(
+      viewerTextarea.value.length,
+      viewerTextarea.value.length
+    );
+  };
+
+  const closeViewer = () => {
+    syncCurrentSource();
+    viewer.classList.add("hidden");
+    currentIndex = -1;
+  };
+
+  viewerTextarea.addEventListener("input", () => {
+    syncCurrentSource();
+  });
+
+  panel.addEventListener("click", (event) => {
+    const target = event.target;
+
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const openButton = target.closest("[data-open-note-viewer]");
+
+    if (openButton instanceof HTMLElement) {
+      const viewerTarget = openButton.getAttribute("data-viewer-target");
+      const sources = getSources();
+      const nextIndex = sources.findIndex(
+        (source) => source.dataset.viewerKey === viewerTarget
+      );
+
+      if (nextIndex >= 0) {
+        openViewerAt(nextIndex);
+      }
+
+      return;
+    }
+
+    if (
+      target.closest("[data-close-note-viewer]") ||
+      target.matches("[data-note-viewer-backdrop]")
+    ) {
+      closeViewer();
+      return;
+    }
+
+    if (target.closest("[data-note-viewer-prev]")) {
+      syncCurrentSource();
+      openViewerAt(currentIndex - 1);
+      return;
+    }
+
+    if (target.closest("[data-note-viewer-next]")) {
+      syncCurrentSource();
+      openViewerAt(currentIndex + 1);
+    }
+  });
+}
+
+function bindAttachmentForm(form, contentId) {
+  if (!(form instanceof HTMLFormElement)) {
+    return;
+  }
+
+  const fileInput = form.querySelector("[data-attachment-file-input]");
+  const fileLabel = form.querySelector("[data-attachment-file-label]");
+  const fileName = form.querySelector("[data-attachment-file-name]");
+  const submitButton = form.querySelector("[data-attachment-submit]");
+  const kindSelect = form.querySelector('select[name="kind"]');
+
+  const syncAccept = () => {
+    if (!(fileInput instanceof HTMLInputElement)) {
+      return;
+    }
+
+    fileInput.accept =
+      kindSelect instanceof HTMLSelectElement && kindSelect.value === "thumbnail"
+        ? "image/*"
+        : "";
+  };
+
+  const syncFileState = () => {
+    const selectedFile =
+      fileInput instanceof HTMLInputElement ? fileInput.files?.[0] : null;
+
+    if (fileLabel instanceof HTMLElement) {
+      fileLabel.textContent = selectedFile ? "파일 변경" : "파일 선택";
+    }
+
+    if (fileName instanceof HTMLElement) {
+      fileName.textContent = selectedFile
+        ? `선택된 파일: ${selectedFile.name}`
+        : "선택된 파일이 없습니다.";
+    }
+  };
+
+  syncAccept();
+  syncFileState();
+
+  kindSelect?.addEventListener("change", syncAccept);
+  fileInput?.addEventListener("change", syncFileState);
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const formData = new FormData(form);
+    const file = formData.get("file");
+    const kind = String(formData.get("kind") || "reference");
+
+    if (!(file instanceof File) || file.size === 0) {
+      showToast("업로드할 파일을 선택해 주세요.", "error");
+      return;
+    }
+
+    if (kind === "thumbnail" && !file.type.startsWith("image/")) {
+      showToast("썸네일은 이미지 파일만 업로드할 수 있습니다.", "error");
+      return;
+    }
+
+    const originalLabel =
+      submitButton instanceof HTMLButtonElement
+        ? submitButton.textContent
+        : null;
+
+    if (submitButton instanceof HTMLButtonElement) {
+      submitButton.disabled = true;
+      submitButton.textContent = "업로드 중...";
+    }
+
+    try {
+      await uploadAttachment({
+        contentId: String(formData.get("contentId")),
+        title: String(formData.get("title") || ""),
+        kind,
+        file
+      });
+
+      await loadWorkspace();
+      openContentDetail(contentId);
+      showToast("첨부 파일이 업로드되었습니다.", "success");
+    } catch (error) {
+      console.error(error);
+      showToast(error.message || "첨부 파일 업로드에 실패했습니다.", "error");
+    } finally {
+      if (submitButton instanceof HTMLButtonElement) {
+        submitButton.disabled = false;
+        submitButton.textContent = originalLabel || "첨부 업로드";
+      }
+    }
+  });
+}
+
 function collectContentFormPayload(formElement) {
   const form = new FormData(formElement);
   const partIds = form.getAll("partId");
@@ -1065,6 +1473,7 @@ function openCreateContentModal() {
 
   const form = refs.modal?.querySelector("[data-content-form]");
   bindPartEditor(form);
+  bindExpandedNoteViewer(refs.modal);
 
   form?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -1133,6 +1542,7 @@ function openContentDetail(contentId) {
 
   openModal(renderContentDetail(content, feedback, attachments), { wide: true });
   bindPartEditor(refs.modal?.querySelector("[data-content-edit-form]"));
+  bindExpandedNoteViewer(refs.modal);
 
   refs.modal
     .querySelector("[data-content-edit-form]")
@@ -1163,32 +1573,14 @@ function openContentDetail(contentId) {
       showToast("댓글이 추가되었습니다.", "success");
     });
 
-  refs.modal
-    .querySelector("[data-attachment-form]")
-    ?.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const form = new FormData(event.currentTarget);
-      const file = form.get("file");
-
-      if (!(file instanceof File) || file.size === 0) {
-        showToast("업로드할 파일을 선택해 주세요.", "error");
-        return;
-      }
-
-      await uploadAttachment({
-        contentId: String(form.get("contentId")),
-        title: String(form.get("title") || ""),
-        kind: String(form.get("kind") || "reference"),
-        file
-      });
-
-      await loadWorkspace();
-      openContentDetail(contentId);
-      showToast("첨부 파일이 업로드되었습니다.", "success");
-    });
+  bindAttachmentForm(refs.modal?.querySelector("[data-attachment-form]"), contentId);
 }
 
 async function uploadAttachment({ contentId, title, kind, file }) {
+  if (kind === "thumbnail" && !file.type.startsWith("image/")) {
+    throw new Error("썸네일은 이미지 파일만 업로드할 수 있습니다.");
+  }
+
   const uploadMeta = await authorizedJson("/.netlify/functions/workspace-upload", {
     method: "POST",
     body: JSON.stringify({
@@ -1200,16 +1592,21 @@ async function uploadAttachment({ contentId, title, kind, file }) {
     })
   });
 
-  const { error } = await state.supabase.storage
-    .from(uploadMeta.bucket)
-    .uploadToSignedUrl(uploadMeta.path, uploadMeta.token, file, {
-      cacheControl: "3600",
-      contentType: file.type || "application/octet-stream",
-      upsert: true
-    });
+  const uploadFormData = new FormData();
+  uploadFormData.append("cacheControl", "3600");
+  uploadFormData.append("", file, file.name);
 
-  if (error) {
-    throw new Error(error.message || "업로드에 실패했습니다.");
+  const uploadResponse = await fetch(uploadMeta.signedUrl, {
+    method: "PUT",
+    headers: {
+      "x-upsert": "true"
+    },
+    body: uploadFormData
+  });
+
+  if (!uploadResponse.ok) {
+    const uploadErrorText = await uploadResponse.text().catch(() => "");
+    throw new Error(uploadErrorText || "업로드에 실패했습니다.");
   }
 
   await authorizedJson("/.netlify/functions/workspace-save", {
@@ -1269,7 +1666,7 @@ async function authorizedJson(url, options = {}) {
 function openModal(content, options = {}) {
   refs.modal.innerHTML = `
     <div class="workspace-modal__backdrop"></div>
-    <div class="workspace-modal__panel ${options.wide ? "max-w-[1180px]" : "max-w-[780px]"} workspace-scrollbar">
+    <div class="workspace-modal__panel ${options.wide ? "workspace-modal__panel--wide" : "workspace-modal__panel--narrow"} workspace-scrollbar">
       ${content}
     </div>
   `;

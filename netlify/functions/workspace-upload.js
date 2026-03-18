@@ -36,6 +36,7 @@ exports.handler = async function handler(event) {
 
     return json(200, {
       bucket,
+      signedUrl: data.signedUrl,
       path: data.path,
       token: data.token
     });

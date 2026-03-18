@@ -46,6 +46,47 @@ function formatDate(value, options = {}) {
   ).format(parsed);
 }
 
+function renderExpandableTextareaField({
+  id,
+  name,
+  label,
+  value,
+  placeholder,
+  viewerKey,
+  viewerTitle,
+  viewerCaption = "",
+  rows = 6,
+  wrapperClass = ""
+}) {
+  return `
+    <div${wrapperClass ? ` class="${wrapperClass}"` : ""}>
+      <div class="flex items-center justify-between gap-3">
+        <label class="block text-sm font-medium text-slate-700" for="${escapeHtml(id)}">${escapeHtml(label)}</label>
+        <button
+          type="button"
+          data-open-note-viewer
+          data-viewer-target="${escapeHtml(viewerKey)}"
+          class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-100"
+        >
+          전체 보기
+        </button>
+      </div>
+      <textarea
+        id="${escapeHtml(id)}"
+        name="${escapeHtml(name)}"
+        rows="${rows}"
+        data-viewer-source
+        data-viewer-key="${escapeHtml(viewerKey)}"
+        data-viewer-label="${escapeHtml(label)}"
+        data-viewer-title="${escapeHtml(viewerTitle || label)}"
+        data-viewer-caption="${escapeHtml(viewerCaption)}"
+        class="mt-2 min-h-[168px] w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
+        placeholder="${escapeHtml(placeholder)}"
+      >${escapeHtml(value || "")}</textarea>
+    </div>
+  `;
+}
+
 function renderComment(comment) {
   return `
     <article class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
@@ -61,13 +102,15 @@ function renderComment(comment) {
 
 export function renderContentPartCard(part, index) {
   const safePart = createEmptyPart(part);
+  const partOrderLabel = `Part ${String(index + 1).padStart(2, "0")}`;
+  const partTitleLabel = safePart.title || partOrderLabel;
 
   return `
-    <article class="rounded-[24px] border border-slate-200 bg-white p-4" data-part-card>
+    <article class="rounded-[24px] border border-slate-200 bg-white p-5" data-part-card>
       <input type="hidden" name="partId" value="${escapeHtml(safePart.id)}" />
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p data-part-order class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Part ${String(index + 1).padStart(2, "0")}</p>
+          <p data-part-order class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">${escapeHtml(partOrderLabel)}</p>
           <input
             name="partTitle"
             value="${escapeHtml(safePart.title)}"
@@ -85,42 +128,50 @@ export function renderContentPartCard(part, index) {
       </div>
 
       <div class="mt-4 grid gap-3 xl:grid-cols-2">
-        <div>
-          <label class="block text-sm font-medium text-slate-700">아이디어</label>
-          <textarea
-            name="partIdea"
-            rows="4"
-            class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
-            placeholder="이 파트에서 전달할 메시지, 감정, 훅"
-          >${escapeHtml(safePart.idea)}</textarea>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700">대본</label>
-          <textarea
-            name="partScript"
-            rows="4"
-            class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
-            placeholder="이 파트의 대사, 장면 전개, 나레이션"
-          >${escapeHtml(safePart.script)}</textarea>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700">촬영 메모</label>
-          <textarea
-            name="partFilming"
-            rows="4"
-            class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
-            placeholder="카메라 구도, B-roll, 필요한 소스"
-          >${escapeHtml(safePart.filming)}</textarea>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-slate-700">편집 메모</label>
-          <textarea
-            name="partEditing"
-            rows="4"
-            class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
-            placeholder="컷 편집, 자막, 효과음, 강조 포인트"
-          >${escapeHtml(safePart.editing)}</textarea>
-        </div>
+        ${renderExpandableTextareaField({
+          name: "partIdea",
+          id: `part-idea-${safePart.id}`,
+          label: "아이디어",
+          value: safePart.idea,
+          placeholder: "이 파트에서 전달할 메시지, 감정, 훅",
+          viewerKey: `part:${safePart.id}:idea`,
+          viewerTitle: `${partTitleLabel} · 아이디어`,
+          viewerCaption: "파트 메모",
+          rows: 5
+        })}
+        ${renderExpandableTextareaField({
+          name: "partScript",
+          id: `part-script-${safePart.id}`,
+          label: "대본",
+          value: safePart.script,
+          placeholder: "이 파트의 대사, 장면 전개, 나레이션",
+          viewerKey: `part:${safePart.id}:script`,
+          viewerTitle: `${partTitleLabel} · 대본`,
+          viewerCaption: "파트 메모",
+          rows: 5
+        })}
+        ${renderExpandableTextareaField({
+          name: "partFilming",
+          id: `part-filming-${safePart.id}`,
+          label: "촬영 메모",
+          value: safePart.filming,
+          placeholder: "카메라 구도, B-roll, 필요한 소스",
+          viewerKey: `part:${safePart.id}:filming`,
+          viewerTitle: `${partTitleLabel} · 촬영 메모`,
+          viewerCaption: "파트 메모",
+          rows: 5
+        })}
+        ${renderExpandableTextareaField({
+          name: "partEditing",
+          id: `part-editing-${safePart.id}`,
+          label: "편집 메모",
+          value: safePart.editing,
+          placeholder: "컷 편집, 자막, 효과음, 강조 포인트",
+          viewerKey: `part:${safePart.id}:editing`,
+          viewerTitle: `${partTitleLabel} · 편집 메모`,
+          viewerCaption: "파트 메모",
+          rows: 5
+        })}
       </div>
     </article>
   `;
@@ -361,56 +412,57 @@ export function renderContentDetail(content, feedback = [], attachments = []) {
 
           <div class="rounded-[26px] border border-slate-200 bg-white p-4">
             <div class="grid gap-4 xl:grid-cols-2">
-              <div>
-                <label class="block text-sm font-medium text-slate-700" for="detail-idea">아이디어 메모</label>
-                <textarea
-                  id="detail-idea"
-                  name="sectionIdea"
-                  rows="5"
-                  class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
-                  placeholder="이 영상의 핵심 메시지, 감정선, 훅을 적어 주세요."
-                >${escapeHtml(sections.idea || "")}</textarea>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-slate-700" for="detail-thumbnail-note">썸네일 메모</label>
-                <textarea
-                  id="detail-thumbnail-note"
-                  name="sectionThumbnail"
-                  rows="5"
-                  class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
-                  placeholder="썸네일 카피, 표정, 색감, 참고 레퍼런스"
-                >${escapeHtml(sections.thumbnail || "")}</textarea>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-slate-700" for="detail-script-summary">대본 전체 메모</label>
-                <textarea
-                  id="detail-script-summary"
-                  name="sectionScript"
-                  rows="5"
-                  class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
-                  placeholder="영상 전체 흐름이나 대본 방향을 적어 주세요."
-                >${escapeHtml(sections.script || "")}</textarea>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-slate-700" for="detail-filming-summary">촬영 전체 메모</label>
-                <textarea
-                  id="detail-filming-summary"
-                  name="sectionFilming"
-                  rows="5"
-                  class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
-                  placeholder="촬영 일정, 준비물, 장소, 필요한 소스를 적어 주세요."
-                >${escapeHtml(sections.filming || "")}</textarea>
-              </div>
-              <div class="xl:col-span-2">
-                <label class="block text-sm font-medium text-slate-700" for="detail-editing-summary">편집 전체 메모</label>
-                <textarea
-                  id="detail-editing-summary"
-                  name="sectionEditing"
-                  rows="5"
-                  class="mt-2 w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
-                  placeholder="리듬, 자막, 사운드, 컷 편집 가이드를 적어 주세요."
-                >${escapeHtml(sections.editing || "")}</textarea>
-              </div>
+              ${renderExpandableTextareaField({
+                id: "detail-idea",
+                name: "sectionIdea",
+                label: "아이디어 메모",
+                value: sections.idea || "",
+                placeholder: "이 영상의 핵심 메시지, 감정선, 훅을 적어 주세요.",
+                viewerKey: "detail:section:idea",
+                viewerTitle: "아이디어 메모",
+                viewerCaption: "전체 메모"
+              })}
+              ${renderExpandableTextareaField({
+                id: "detail-thumbnail-note",
+                name: "sectionThumbnail",
+                label: "썸네일 메모",
+                value: sections.thumbnail || "",
+                placeholder: "썸네일 카피, 표정, 색감, 참고 레퍼런스",
+                viewerKey: "detail:section:thumbnail",
+                viewerTitle: "썸네일 메모",
+                viewerCaption: "전체 메모"
+              })}
+              ${renderExpandableTextareaField({
+                id: "detail-script-summary",
+                name: "sectionScript",
+                label: "대본 전체 메모",
+                value: sections.script || "",
+                placeholder: "영상 전체 흐름이나 대본 방향을 적어 주세요.",
+                viewerKey: "detail:section:script",
+                viewerTitle: "대본 전체 메모",
+                viewerCaption: "전체 메모"
+              })}
+              ${renderExpandableTextareaField({
+                id: "detail-filming-summary",
+                name: "sectionFilming",
+                label: "촬영 전체 메모",
+                value: sections.filming || "",
+                placeholder: "촬영 일정, 준비물, 장소, 필요한 소스를 적어 주세요.",
+                viewerKey: "detail:section:filming",
+                viewerTitle: "촬영 전체 메모",
+                viewerCaption: "전체 메모"
+              })}
+              ${renderExpandableTextareaField({
+                id: "detail-editing-summary",
+                name: "sectionEditing",
+                label: "편집 전체 메모",
+                value: sections.editing || "",
+                placeholder: "리듬, 자막, 사운드, 컷 편집 가이드를 적어 주세요.",
+                viewerKey: "detail:section:editing",
+                viewerTitle: "편집 전체 메모",
+                viewerCaption: "전체 메모",
+                wrapperClass: "xl:col-span-2"
+              })}
             </div>
           </div>
 
@@ -464,11 +516,15 @@ export function renderContentDetail(content, feedback = [], attachments = []) {
               <option value="reference">참고 자료</option>
             </select>
             <label class="inline-flex cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-100">
-              <input type="file" name="file" class="hidden" required />
-              파일 선택
+              <input type="file" name="file" class="hidden" data-attachment-file-input required />
+              <span data-attachment-file-label>파일 선택</span>
             </label>
+            <p class="md:col-span-3 text-xs text-slate-500" data-attachment-file-name>
+              선택된 파일이 없습니다.
+            </p>
             <button
               type="submit"
+              data-attachment-submit
               class="md:col-span-3 inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
             >
               첨부 업로드
