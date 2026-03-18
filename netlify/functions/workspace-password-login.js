@@ -5,7 +5,10 @@ const {
   parseBody,
   createSupabaseAdmin,
   createSupabaseAuthClient,
-  resolveLoginIdentifier
+  resolveLoginIdentifier,
+  fetchAdminCreatorList,
+  normalizeWorkspaceProfile,
+  loadWorkspaceData
 } = require("./utils/workspace");
 
 exports.handler = async function handler(event) {
@@ -46,11 +49,49 @@ exports.handler = async function handler(event) {
       throw new HttpError(401, "Invalid ID or password.");
     }
 
+    const workspaceProfile = normalizeWorkspaceProfile(user.user_metadata?.workspace_profile);
+    const displayName =
+      workspaceProfile.nickname ||
+      user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
+      resolved.loginId ||
+      user.email ||
+      "Workspace user";
+    const creators =
+      mode === "workspace" && resolved.role === "admin"
+        ? await fetchAdminCreatorList(supabaseAdmin)
+        : [];
+    const initialCreatorId =
+      mode === "workspace"
+        ? resolved.creatorId || creators[0]?.id || null
+        : resolved.creatorId || null;
+    const workspaceData =
+      mode === "workspace" && initialCreatorId
+        ? await loadWorkspaceData(supabaseAdmin, initialCreatorId)
+        : null;
+    const redirectTo =
+      mode === "workspace" && initialCreatorId
+        ? `/workspace/${encodeURIComponent(initialCreatorId)}`
+        : resolved.redirectTo;
+
     return json(200, {
       ok: true,
-      redirectTo: resolved.redirectTo,
-      creatorId: resolved.creatorId,
+      redirectTo,
+      creatorId: initialCreatorId,
       isCompanyAdmin: resolved.role === "admin",
+      loginId: resolved.loginId,
+      redirectCreatorId: initialCreatorId,
+      creators,
+      workspaceData,
+      user: {
+        email: String(user.email || "").trim().toLowerCase(),
+        displayName,
+        roles: resolved.role === "admin" ? ["company_admin"] : [],
+        creatorId: initialCreatorId,
+        isCompanyAdmin: resolved.role === "admin",
+        loginId: resolved.loginId,
+        workspaceProfile
+      },
       accessToken: session.access_token,
       refreshToken: session.refresh_token,
       expiresAt: session.expires_at
