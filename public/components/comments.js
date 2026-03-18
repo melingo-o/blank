@@ -500,28 +500,39 @@ export function renderContentDetail(content, feedback = [], attachments = []) {
       </section>
 
       <section class="space-y-5">
-        <div class="rounded-[26px] border border-slate-200 bg-slate-50/80 p-4">
+        <div class="rounded-[26px] border border-slate-200 bg-slate-50/80 p-4" data-attachment-panel>
           <div class="flex items-center justify-between gap-3">
             <div>
               <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">첨부 파일</p>
               <p class="mt-1 text-sm text-slate-500">썸네일, 대본 파일, PDF 노트를 한 카드 안에서 함께 관리할 수 있습니다.</p>
             </div>
           </div>
-          ${
-            thumbnail
-              ? `
-                <div class="mt-4 overflow-hidden rounded-[22px] border border-slate-200 bg-white">
-                  <a href="${escapeHtml(thumbnail)}" target="_blank" rel="noreferrer" class="block">
-                    <img src="${escapeHtml(thumbnail)}" alt="${escapeHtml(content.title || "콘텐츠")} 썸네일" class="h-52 w-full object-cover" />
-                  </a>
-                </div>
-              `
-              : `
-                <div class="mt-4 flex h-52 items-center justify-center rounded-[22px] border border-dashed border-slate-200 bg-white text-sm text-slate-400">
-                  아직 업로드된 썸네일이 없습니다.
-                </div>
-              `
-          }
+          <div
+            class="mt-4 overflow-hidden rounded-[22px] border border-slate-200 bg-white"
+            data-thumbnail-preview
+            data-thumbnail-current="${escapeHtml(thumbnail)}"
+          >
+            <a
+              href="${escapeHtml(thumbnail || "#")}"
+              target="_blank"
+              rel="noreferrer"
+              class="block ${thumbnail ? "" : "hidden"}"
+              data-thumbnail-preview-link
+            >
+              <img
+                src="${escapeHtml(thumbnail)}"
+                alt="${escapeHtml(content.title || "콘텐츠")} 썸네일"
+                class="h-52 w-full object-cover"
+                data-thumbnail-preview-image
+              />
+            </a>
+            <div
+              class="${thumbnail ? "hidden " : ""}flex h-52 items-center justify-center border-dashed border-slate-200 bg-white text-sm text-slate-400"
+              data-thumbnail-preview-empty
+            >
+              아직 업로드된 썸네일이 없습니다.
+            </div>
+          </div>
 
           <form class="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_auto]" data-attachment-form>
             <input type="hidden" name="contentId" value="${escapeHtml(content.id)}" />

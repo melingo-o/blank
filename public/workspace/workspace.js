@@ -7,7 +7,7 @@ import {
   renderContentDetail,
   renderContentPartCard,
   renderContentPartEditor
-} from "/components/comments.js?v=20260318b";
+} from "/components/comments.js?v=20260318c";
 import {
   CONTENT_PLAN_STAGES,
   CONTENT_STATUS_OPTIONS,
@@ -1523,11 +1523,78 @@ function bindAttachmentForm(form, contentId) {
     return;
   }
 
+  const attachmentPanel = form.closest("[data-attachment-panel]");
   const fileInput = form.querySelector("[data-attachment-file-input]");
   const fileLabel = form.querySelector("[data-attachment-file-label]");
   const fileName = form.querySelector("[data-attachment-file-name]");
   const submitButton = form.querySelector("[data-attachment-submit]");
   const kindSelect = form.querySelector('select[name="kind"]');
+  const thumbnailPreview =
+    attachmentPanel instanceof HTMLElement
+      ? attachmentPanel.querySelector("[data-thumbnail-preview]")
+      : null;
+  const thumbnailPreviewLink =
+    attachmentPanel instanceof HTMLElement
+      ? attachmentPanel.querySelector("[data-thumbnail-preview-link]")
+      : null;
+  const thumbnailPreviewImage =
+    attachmentPanel instanceof HTMLElement
+      ? attachmentPanel.querySelector("[data-thumbnail-preview-image]")
+      : null;
+  const thumbnailPreviewEmpty =
+    attachmentPanel instanceof HTMLElement
+      ? attachmentPanel.querySelector("[data-thumbnail-preview-empty]")
+      : null;
+  let previewObjectUrl = null;
+
+  const clearObjectUrl = () => {
+    if (previewObjectUrl) {
+      URL.revokeObjectURL(previewObjectUrl);
+      previewObjectUrl = null;
+    }
+  };
+
+  const setThumbnailPreview = (url) => {
+    if (!(thumbnailPreview instanceof HTMLElement)) {
+      return;
+    }
+
+    const hasImage = Boolean(url);
+
+    if (thumbnailPreviewLink instanceof HTMLAnchorElement) {
+      thumbnailPreviewLink.href = hasImage ? url : "#";
+      thumbnailPreviewLink.classList.toggle("hidden", !hasImage);
+    }
+
+    if (thumbnailPreviewImage instanceof HTMLImageElement) {
+      thumbnailPreviewImage.src = hasImage ? url : "";
+    }
+
+    if (thumbnailPreviewEmpty instanceof HTMLElement) {
+      thumbnailPreviewEmpty.classList.toggle("hidden", hasImage);
+    }
+  };
+
+  const syncThumbnailPreview = () => {
+    const selectedFile =
+      fileInput instanceof HTMLInputElement ? fileInput.files?.[0] : null;
+    const isThumbnailKind =
+      kindSelect instanceof HTMLSelectElement && kindSelect.value === "thumbnail";
+
+    if (isThumbnailKind && selectedFile instanceof File && selectedFile.type.startsWith("image/")) {
+      clearObjectUrl();
+      previewObjectUrl = URL.createObjectURL(selectedFile);
+      setThumbnailPreview(previewObjectUrl);
+      return;
+    }
+
+    clearObjectUrl();
+    const currentThumbnail =
+      thumbnailPreview instanceof HTMLElement
+        ? thumbnailPreview.getAttribute("data-thumbnail-current") || ""
+        : "";
+    setThumbnailPreview(currentThumbnail);
+  };
 
   const syncAccept = () => {
     if (!(fileInput instanceof HTMLInputElement)) {
@@ -1553,12 +1620,17 @@ function bindAttachmentForm(form, contentId) {
         ? `선택된 파일: ${selectedFile.name}`
         : "선택된 파일이 없습니다.";
     }
+
+    syncThumbnailPreview();
   };
 
   syncAccept();
   syncFileState();
 
-  kindSelect?.addEventListener("change", syncAccept);
+  kindSelect?.addEventListener("change", () => {
+    syncAccept();
+    syncThumbnailPreview();
+  });
   fileInput?.addEventListener("change", syncFileState);
 
   form.addEventListener("submit", async (event) => {
@@ -1595,6 +1667,7 @@ function bindAttachmentForm(form, contentId) {
         file
       });
 
+      clearObjectUrl();
       await loadWorkspace();
       openContentDetail(contentId);
       showToast("첨부 파일이 업로드되었습니다.", "success");
