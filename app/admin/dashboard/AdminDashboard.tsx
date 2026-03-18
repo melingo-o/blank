@@ -18,6 +18,7 @@ import type {
 } from "@/lib/supabase/types"
 
 const STORAGE_BUCKET = "influencer-images"
+const WORKSPACE_SESSION_HANDOFF_KEY = "workspaceSessionHandoff"
 
 const portfolioSchema = z.object({
   name: z.string().min(1, "이름을 입력해 주세요."),
@@ -204,6 +205,36 @@ export default function AdminDashboard({
     setSelectedCreatorIdForAccount(creatorId)
     setActiveTab("accounts")
   }, [])
+
+  const handleOpenWorkspace = useCallback(
+    async (workspacePath: string) => {
+      const {
+        data: { session }
+      } = await supabase.auth.getSession()
+
+      if (!session?.access_token || !session?.refresh_token) {
+        router.push("/admin")
+        router.refresh()
+        return
+      }
+
+      if (typeof window !== "undefined" && window.sessionStorage) {
+        window.sessionStorage.setItem(
+          WORKSPACE_SESSION_HANDOFF_KEY,
+          JSON.stringify({
+            accessToken: session.access_token,
+            refreshToken: session.refresh_token
+          })
+        )
+        window.location.assign(workspacePath)
+        return
+      }
+
+      router.push(workspacePath)
+      router.refresh()
+    },
+    [router, supabase]
+  )
 
   const handleCreatorsChanged = useCallback(
     async (preferredCreatorId?: string | null) => {
@@ -517,12 +548,13 @@ export default function AdminDashboard({
             >
               뒤로가기
             </Link>
-            <Link
-              href="/workspace"
+            <button
+              type="button"
+              onClick={() => void handleOpenWorkspace("/workspace")}
               className="rounded-full border border-border/60 px-5 py-2 text-xs uppercase tracking-[0.25em] text-foreground boty-transition hover:bg-muted"
             >
               Creator Workspace
-            </Link>
+            </button>
             <button
               type="button"
               onClick={handleSignOut}
@@ -573,6 +605,7 @@ export default function AdminDashboard({
             callAdminCreatorApi={callAdminCreatorApi}
             onRequestAccountSetup={handleOpenAccountSetup}
             onCreatorsChanged={handleCreatorsChanged}
+            onOpenWorkspace={handleOpenWorkspace}
           />
         )}
 
@@ -584,6 +617,7 @@ export default function AdminDashboard({
             onRefreshCreators={refreshCreators}
             onCreatorsChanged={handleCreatorsChanged}
             callAdminCreatorApi={callAdminCreatorApi}
+            onOpenWorkspace={handleOpenWorkspace}
           />
         )}
 
