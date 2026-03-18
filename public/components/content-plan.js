@@ -40,6 +40,38 @@ function normalizeText(value) {
   return String(value || "").trim();
 }
 
+function normalizeEditorMetadata(value) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const displayName = normalizeText(value.displayName);
+  const email = normalizeText(value.email).toLowerCase();
+  const fallbackSource = displayName || email;
+  const fallbackLabel = fallbackSource
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "")
+    .slice(0, fallbackSource.length <= 3 ? 3 : 4);
+  const label = normalizeText(value.label || fallbackLabel).toLowerCase().slice(0, 4);
+
+  if (!label && !displayName && !email) {
+    return null;
+  }
+
+  return {
+    label,
+    displayName,
+    email
+  };
+}
+
+function createContentMeta(overrides = {}) {
+  return {
+    lastEditedBy: normalizeEditorMetadata(overrides.lastEditedBy),
+    lastEditedAt: normalizeText(overrides.lastEditedAt)
+  };
+}
+
 export function createDefaultPlanSections(overrides = {}) {
   return {
     idea: "",
@@ -58,7 +90,9 @@ export function createEmptyPart(overrides = {}) {
     idea: normalizeText(overrides.idea),
     script: normalizeText(overrides.script),
     filming: normalizeText(overrides.filming),
-    editing: normalizeText(overrides.editing)
+    editing: normalizeText(overrides.editing),
+    lastEditedBy: normalizeEditorMetadata(overrides.lastEditedBy),
+    lastEditedAt: normalizeText(overrides.lastEditedAt)
   };
 }
 
@@ -83,6 +117,10 @@ function parseStructuredScript(value) {
 
 export function hydrateContentItem(content = {}) {
   const structured = parseStructuredScript(content.script);
+  const meta =
+    structured?.meta && typeof structured.meta === "object"
+      ? createContentMeta(structured.meta)
+      : createContentMeta();
   const sections = createDefaultPlanSections({
     idea: normalizeText(content.concept)
   });
@@ -102,6 +140,8 @@ export function hydrateContentItem(content = {}) {
 
   return {
     ...content,
+    lastEditedBy: meta.lastEditedBy,
+    lastEditedAt: meta.lastEditedAt,
     planSections: sections,
     parts
   };
@@ -117,7 +157,8 @@ export function buildContentSavePayload({
   status,
   publishDate,
   sections,
-  parts
+  parts,
+  meta
 }) {
   const normalizedSections = createDefaultPlanSections(sections);
   const normalizedParts = (Array.isArray(parts) ? parts : [])
@@ -128,7 +169,8 @@ export function buildContentSavePayload({
     );
 
   const structuredScript = {
-    version: 2,
+    version: 3,
+    meta: createContentMeta(meta),
     sections: {
       thumbnail: normalizedSections.thumbnail,
       script: normalizedSections.script,
