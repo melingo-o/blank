@@ -161,7 +161,7 @@ export function WorkspaceShell() {
 
       <Script
         type="module"
-        src="/workspace/workspace.js?v=20260318f"
+        src="/workspace/workspace.js?v=20260318g"
         strategy="afterInteractive"
       />
     </>
