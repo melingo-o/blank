@@ -104,6 +104,54 @@ function normalizeLoginId(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+const WORKSPACE_PROFILE_COLORS = new Set([
+  "slate",
+  "blue",
+  "emerald",
+  "amber",
+  "rose",
+  "violet"
+]);
+
+function normalizeWorkspaceColor(value) {
+  const normalized = normalizeLoginId(value);
+  return WORKSPACE_PROFILE_COLORS.has(normalized) ? normalized : "slate";
+}
+
+function normalizeWorkspaceProfile(value) {
+  if (!value || typeof value !== "object") {
+    return {
+      nickname: "",
+      color: "slate"
+    };
+  }
+
+  return {
+    nickname: String(value.nickname || "").trim(),
+    color: normalizeWorkspaceColor(value.color)
+  };
+}
+
+function buildWorkspaceLoginId({ user, creator, isCompanyAdmin, email }) {
+  const explicitLoginId = normalizeLoginId(
+    user?.user_metadata?.workspace_login_id || user?.user_metadata?.login_id
+  );
+
+  if (explicitLoginId) {
+    return explicitLoginId;
+  }
+
+  if (isCompanyAdmin) {
+    return "admin";
+  }
+
+  if (creator?.id) {
+    return normalizeLoginId(creator.id);
+  }
+
+  return normalizeLoginId(email.split("@")[0] || "user");
+}
+
 function getAdminEmails() {
   return String(process.env.WORKSPACE_ADMIN_EMAILS || "")
     .split(",")
@@ -322,7 +370,15 @@ async function getUserFromRequest(event, supabase) {
   ]);
   const isCompanyAdmin = !!admin;
   const roles = isCompanyAdmin ? ["company_admin"] : [];
+  const workspaceProfile = normalizeWorkspaceProfile(user.user_metadata?.workspace_profile);
+  const loginId = buildWorkspaceLoginId({
+    user,
+    creator,
+    isCompanyAdmin,
+    email
+  });
   const displayName =
+    workspaceProfile.nickname ||
     user.user_metadata?.full_name ||
     user.user_metadata?.name ||
     creator?.name ||
@@ -336,7 +392,9 @@ async function getUserFromRequest(event, supabase) {
     roles,
     creatorId: creator?.id || null,
     isCompanyAdmin,
-    displayName
+    displayName,
+    loginId,
+    workspaceProfile
   };
 }
 
@@ -406,7 +464,8 @@ async function resolveLoginIdentifier({ supabase, loginId, mode = "workspace" })
       email: adminEmail,
       role: "admin",
       creatorId: null,
-      redirectTo: "/admin/dashboard"
+      redirectTo: "/admin/dashboard",
+      loginId: "admin"
     };
   }
 
@@ -415,7 +474,8 @@ async function resolveLoginIdentifier({ supabase, loginId, mode = "workspace" })
       email: normalizeLoginId(admin.email),
       role: "admin",
       creatorId: null,
-      redirectTo: "/workspace"
+      redirectTo: "/workspace",
+      loginId: "admin"
     };
   }
 
@@ -434,7 +494,8 @@ async function resolveLoginIdentifier({ supabase, loginId, mode = "workspace" })
     email: normalizeLoginId(creator.login_email),
     role: "creator",
     creatorId: creator.id,
-    redirectTo: `/workspace/${encodeURIComponent(creator.id)}`
+    redirectTo: `/workspace/${encodeURIComponent(creator.id)}`,
+    loginId: normalizeLoginId(creator.id)
   };
 }
 
@@ -664,5 +725,7 @@ module.exports = {
   storageRef,
   loadWorkspaceData,
   buildIdentityMapping,
-  maybeSingle
+  maybeSingle,
+  normalizeWorkspaceProfile,
+  normalizeWorkspaceColor
 };
