@@ -1,13 +1,13 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 import { renderChannelPlanPanel } from "/components/channel-plan.js?v=20260311d";
-import { renderSidebar } from "/components/sidebar.js?v=20260311d";
+import { renderSidebar } from "/components/sidebar.js?v=20260318f";
 import { renderKanban } from "/components/kanban.js?v=20260311d";
 import {
   renderFeedbackPanel,
   renderContentDetail,
   renderContentPartCard,
   renderContentPartEditor
-} from "/components/comments.js?v=20260318d";
+} from "/components/comments.js?v=20260318f";
 import {
   CONTENT_PLAN_STAGES,
   CONTENT_STATUS_OPTIONS,
@@ -16,7 +16,7 @@ import {
   createEmptyPart,
   hydrateContentItem,
   hydrateContents
-} from "/components/content-plan.js?v=20260318d";
+} from "/components/content-plan.js?v=20260318f";
 import { renderTimeline } from "/components/timeline.js?v=20260311d";
 
 const TABS = [
@@ -52,6 +52,14 @@ const ATTACHMENT_LABELS = {
 
 const WORKSPACE_SESSION_HANDOFF_KEY = "workspaceSessionHandoff";
 const CONTENT_AUTOSAVE_DELAY = 1200;
+const EDITOR_COLOR_OPTIONS = [
+  { id: "slate", label: "Slate" },
+  { id: "blue", label: "Blue" },
+  { id: "emerald", label: "Emerald" },
+  { id: "amber", label: "Amber" },
+  { id: "rose", label: "Rose" },
+  { id: "violet", label: "Violet" }
+];
 
 const state = {
   config: null,
@@ -69,6 +77,33 @@ const state = {
 
 const refs = {};
 let toastTimer = null;
+
+function normalizeWorkspaceColor(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return EDITOR_COLOR_OPTIONS.some((item) => item.id === normalized)
+    ? normalized
+    : "slate";
+}
+
+function normalizeWorkspaceProfile(profile = {}) {
+  return {
+    nickname: String(profile?.nickname || "").trim(),
+    color: normalizeWorkspaceColor(profile?.color)
+  };
+}
+
+function normalizeSessionUser(user = {}) {
+  const isCompanyAdmin = Boolean(user?.isCompanyAdmin);
+  const fallbackLoginId = isCompanyAdmin
+    ? "admin"
+    : String(user?.creatorId || "").trim().toLowerCase();
+
+  return {
+    ...user,
+    loginId: String(user?.loginId || fallbackLoginId || "user").trim().toLowerCase(),
+    workspaceProfile: normalizeWorkspaceProfile(user?.workspaceProfile)
+  };
+}
 
 function startWorkspaceApp() {
   collectRefs();
@@ -238,6 +273,36 @@ async function consumeSessionHandoff() {
   }
 }
 
+function writeSessionHandoff(accessToken, refreshToken) {
+  if (!window.sessionStorage || !accessToken || !refreshToken) {
+    return;
+  }
+
+  window.sessionStorage.setItem(
+    WORKSPACE_SESSION_HANDOFF_KEY,
+    JSON.stringify({
+      accessToken,
+      refreshToken
+    })
+  );
+}
+
+async function persistCurrentSessionHandoff() {
+  if (!state.supabase) {
+    return;
+  }
+
+  const {
+    data: { session }
+  } = await state.supabase.auth.getSession();
+
+  if (!session?.access_token || !session?.refresh_token) {
+    return;
+  }
+
+  writeSessionHandoff(session.access_token, session.refresh_token);
+}
+
 async function handleWorkspaceLogin() {
   const loginId = refs.authLoginId?.value?.trim() || "";
   const password = refs.authPassword?.value || "";
@@ -281,12 +346,24 @@ async function handleWorkspaceLogin() {
 
     refs.authForm?.reset();
 
-    if (payload.redirectTo && payload.redirectTo !== window.location.pathname) {
+    if (payload.redirectTo && !payload.redirectTo.startsWith("/workspace")) {
       window.location.assign(payload.redirectTo);
       return;
     }
 
-    await initSession();
+    showLayout();
+    renderLoadingShell();
+
+    if (payload.redirectTo && payload.redirectTo !== window.location.pathname) {
+      window.history.replaceState({}, "", payload.redirectTo);
+    }
+
+    await applyAuthenticatedWorkspaceContext({
+      user: normalizeSessionUser(payload.user || {}),
+      creators: payload.creators || [],
+      redirectCreatorId: payload.redirectCreatorId || payload.creatorId || null,
+      workspaceData: payload.workspaceData || null
+    });
     showToast("워크스페이스에 접속했습니다.", "success");
   } catch (error) {
     console.error(error);
@@ -299,15 +376,13 @@ async function handleWorkspaceLogin() {
   }
 }
 
-async function handleAuthenticatedSession() {
-  showLayout();
-  renderLoadingShell();
+async function applyAuthenticatedWorkspaceContext(authz, options = {}) {
+  const requestedCreatorId =
+    options.requestedCreatorId === undefined
+      ? getRequestedCreatorId()
+      : options.requestedCreatorId;
 
-  const requestedCreatorId = getRequestedCreatorId();
-  const query = requestedCreatorId ? `?creatorId=${encodeURIComponent(requestedCreatorId)}` : "";
-  const authz = await authorizedJson(`/.netlify/functions/workspace-authz${query}`);
-
-  state.session = authz.user;
+  state.session = normalizeSessionUser(authz.user || {});
   state.creators = authz.creators || [];
 
   const resolvedCreatorId =
@@ -318,8 +393,11 @@ async function handleAuthenticatedSession() {
     null;
 
   if (resolvedCreatorId && resolvedCreatorId !== requestedCreatorId) {
-    window.location.replace(`/workspace/${encodeURIComponent(resolvedCreatorId)}`);
-    return;
+    window.history.replaceState(
+      {},
+      "",
+      `/workspace/${encodeURIComponent(resolvedCreatorId)}`
+    );
   }
 
   state.creatorId = resolvedCreatorId;
@@ -329,7 +407,30 @@ async function handleAuthenticatedSession() {
     return;
   }
 
+  const initialWorkspaceData = options.workspaceData || authz.workspaceData || null;
+
+  if (initialWorkspaceData?.creator?.id === state.creatorId) {
+    applyWorkspacePayload({
+      ...initialWorkspaceData,
+      contents: hydrateContents(initialWorkspaceData.contents || [])
+    });
+    renderWorkspace();
+    return;
+  }
+
   await loadWorkspace();
+}
+
+async function handleAuthenticatedSession() {
+  showLayout();
+  renderLoadingShell();
+
+  const requestedCreatorId = getRequestedCreatorId();
+  const query = requestedCreatorId ? `?creatorId=${encodeURIComponent(requestedCreatorId)}` : "";
+  const authz = await authorizedJson(`/.netlify/functions/workspace-authz${query}`);
+  await applyAuthenticatedWorkspaceContext(authz, {
+    requestedCreatorId
+  });
 }
 
 async function loadWorkspace(options = {}) {
@@ -492,11 +593,16 @@ function bindSidebarEvents() {
   });
 
   refs.sidebar
+    .querySelector("[data-open-profile-settings]")
+    ?.addEventListener("click", openWorkspaceProfileModal);
+
+  refs.sidebar
     .querySelector("#workspace-creator-select")
-    ?.addEventListener("change", (event) => {
+    ?.addEventListener("change", async (event) => {
       const nextId = event.target.value;
 
       if (nextId) {
+        await persistCurrentSessionHandoff();
         window.location.assign(`/workspace/${encodeURIComponent(nextId)}`);
       }
     });
@@ -836,31 +942,43 @@ function buildEditorShortLabel(value) {
     return "";
   }
 
-  return normalized.slice(0, normalized.length <= 3 ? 3 : 4);
+  if (normalized === "admin") {
+    return "admin";
+  }
+
+  return normalized.slice(0, 4);
 }
 
 function getCurrentEditorMetadata() {
   const email = normalizeEditableText(state.session?.email).toLowerCase();
-  const emailLocal = email.includes("@") ? email.split("@")[0] : email;
-  const displayName = normalizeEditableText(state.session?.displayName);
-  const creatorId = normalizeEditableText(state.session?.creatorId || state.creatorId);
+  const loginId = normalizeEditableText(state.session?.loginId).toLowerCase();
+  const nickname = normalizeEditableText(state.session?.workspaceProfile?.nickname);
+  const displayName = nickname || normalizeEditableText(state.session?.displayName);
+  const color = normalizeWorkspaceColor(state.session?.workspaceProfile?.color);
   const label =
+    buildEditorShortLabel(nickname) ||
+    buildEditorShortLabel(loginId) ||
     buildEditorShortLabel(displayName) ||
-    buildEditorShortLabel(emailLocal) ||
-    buildEditorShortLabel(creatorId) ||
     "user";
 
   return {
+    loginId,
+    nickname,
     label,
     displayName,
-    email
+    email,
+    color
   };
 }
 
 function buildEditorTooltip(editor, editedAt) {
   const parts = [];
 
-  if (editor?.displayName) {
+  if (editor?.nickname) {
+    parts.push(editor.nickname);
+  } else if (editor?.loginId) {
+    parts.push(editor.loginId);
+  } else if (editor?.displayName) {
     parts.push(editor.displayName);
   } else if (editor?.email) {
     parts.push(editor.email);
@@ -881,7 +999,8 @@ function buildEditorTooltip(editor, editedAt) {
 }
 
 function buildEditorBadgeMarkup(editor, editedAt, options = {}) {
-  const label = normalizeEditableText(editor?.label).toLowerCase().slice(0, 4);
+  const rawLabel = normalizeEditableText(editor?.label).toLowerCase();
+  const label = rawLabel === "admin" ? "admin" : rawLabel.slice(0, 4);
 
   if (!label) {
     return "";
@@ -893,6 +1012,7 @@ function buildEditorBadgeMarkup(editor, editedAt, options = {}) {
   return `
     <span
       class="workspace-editor-badge${inlineClass}"
+      data-editor-color="${escapeHtml(normalizeWorkspaceColor(editor?.color))}"
       title="${escapeHtml(tooltip)}"
       aria-label="${escapeHtml(tooltip)}"
     >
@@ -1337,6 +1457,102 @@ function openMeetingModal() {
       closeModal();
       showToast("미팅이 저장되었습니다.", "success");
     });
+}
+
+function renderWorkspaceProfileModal() {
+  const loginId = normalizeEditableText(state.session?.loginId || "user").toLowerCase();
+  const profile = normalizeWorkspaceProfile(state.session?.workspaceProfile);
+  const previewLabel =
+    buildEditorShortLabel(profile.nickname) ||
+    buildEditorShortLabel(loginId) ||
+    "user";
+
+  return `
+    <div class="space-y-5">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">작업자 설정</p>
+          <h2 class="mt-2 text-2xl font-semibold text-slate-950">작업자 이름과 배지 색상을 관리하세요</h2>
+          <p class="mt-2 text-sm text-slate-500">로그인 ID를 기준으로 기록되고, 여기서 닉네임과 색상을 바꿀 수 있습니다.</p>
+        </div>
+        <button type="button" data-close-modal class="rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-500 transition hover:border-slate-300 hover:bg-slate-50">닫기</button>
+      </div>
+      <form class="space-y-5" data-workspace-profile-form>
+        <div class="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4">
+          <label class="block text-sm font-medium text-slate-700" for="workspace-profile-login-id">로그인 ID</label>
+          <input id="workspace-profile-login-id" value="${escapeHtml(loginId)}" class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none" readonly />
+          <p class="mt-2 text-xs text-slate-500">작업 기록의 기준이 되는 로그인 ID입니다.</p>
+        </div>
+        <div class="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4">
+          <label class="block text-sm font-medium text-slate-700" for="workspace-profile-nickname">작업자 닉네임</label>
+          <input id="workspace-profile-nickname" name="nickname" value="${escapeHtml(profile.nickname)}" maxlength="24" placeholder="예: chae" class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400" />
+          <p class="mt-2 text-xs text-slate-500">비워두면 로그인 ID 기준으로 자동 표시됩니다.</p>
+        </div>
+        <div class="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4">
+          <p class="text-sm font-medium text-slate-700">배지 색상</p>
+          <div class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            ${EDITOR_COLOR_OPTIONS.map(
+              (option) => `
+                <label class="workspace-color-option ${profile.color === option.id ? "is-selected" : ""}">
+                  <input type="radio" name="color" value="${escapeHtml(option.id)}" class="sr-only" ${profile.color === option.id ? "checked" : ""} />
+                  <span class="workspace-editor-badge" data-editor-color="${escapeHtml(option.id)}">${escapeHtml(previewLabel)}</span>
+                  <span class="text-sm font-medium text-slate-700">${escapeHtml(option.label)}</span>
+                </label>
+              `
+            ).join("")}
+          </div>
+        </div>
+        <div class="flex items-center justify-end gap-3">
+          <button type="button" data-close-modal class="rounded-full border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50">취소</button>
+          <button type="submit" class="rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800">설정 저장</button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+
+function openWorkspaceProfileModal() {
+  if (!state.session) {
+    return;
+  }
+
+  openModal(renderWorkspaceProfileModal());
+
+  const form = refs.modal?.querySelector("[data-workspace-profile-form]");
+
+  form?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const nextProfile = normalizeWorkspaceProfile({
+      nickname: String(formData.get("nickname") || ""),
+      color: String(formData.get("color") || "slate")
+    });
+
+    try {
+      const { error } = await state.supabase.auth.updateUser({
+        data: {
+          workspace_login_id: normalizeEditableText(state.session?.loginId || "user").toLowerCase(),
+          workspace_profile: nextProfile
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      state.session = normalizeSessionUser({
+        ...state.session,
+        displayName: nextProfile.nickname || state.session.displayName,
+        workspaceProfile: nextProfile
+      });
+      closeModal();
+      renderWorkspace();
+      showToast("작업자 설정이 저장되었습니다.", "success");
+    } catch (error) {
+      console.error(error);
+      showToast(error.message || "작업자 설정을 저장하지 못했습니다.", "error");
+    }
+  });
 }
 
 function renderExpandableTextareaField({
