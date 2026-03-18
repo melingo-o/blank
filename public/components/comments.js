@@ -52,16 +52,15 @@ function renderExpandableTextareaField({
   label,
   value,
   placeholder,
-  viewerKey,
-  viewerTitle,
+  viewerKey = "",
+  viewerTitle = "",
   viewerCaption = "",
   rows = 6,
-  wrapperClass = ""
+  wrapperClass = "",
+  showViewerButton = Boolean(viewerKey)
 }) {
-  return `
-    <div${wrapperClass ? ` class="${wrapperClass}"` : ""}>
-      <div class="flex items-center justify-between gap-3">
-        <label class="block text-sm font-medium text-slate-700" for="${escapeHtml(id)}">${escapeHtml(label)}</label>
+  const viewerButton = showViewerButton && viewerKey
+    ? `
         <button
           type="button"
           data-open-note-viewer
@@ -70,16 +69,29 @@ function renderExpandableTextareaField({
         >
           전체 보기
         </button>
-      </div>
-      <textarea
-        id="${escapeHtml(id)}"
-        name="${escapeHtml(name)}"
-        rows="${rows}"
+      `
+    : "";
+  const viewerAttributes = viewerKey
+    ? `
         data-viewer-source
         data-viewer-key="${escapeHtml(viewerKey)}"
         data-viewer-label="${escapeHtml(label)}"
         data-viewer-title="${escapeHtml(viewerTitle || label)}"
         data-viewer-caption="${escapeHtml(viewerCaption)}"
+      `
+    : "";
+
+  return `
+    <div${wrapperClass ? ` class="${wrapperClass}"` : ""}>
+      <div class="flex items-center justify-between gap-3">
+        <label class="block text-sm font-medium text-slate-700" for="${escapeHtml(id)}">${escapeHtml(label)}</label>
+        ${viewerButton}
+      </div>
+      <textarea
+        id="${escapeHtml(id)}"
+        name="${escapeHtml(name)}"
+        rows="${rows}"
+        ${viewerAttributes}
         class="mt-2 min-h-[168px] w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
         placeholder="${escapeHtml(placeholder)}"
       >${escapeHtml(value || "")}</textarea>
@@ -103,7 +115,6 @@ function renderComment(comment) {
 export function renderContentPartCard(part, index) {
   const safePart = createEmptyPart(part);
   const partOrderLabel = `Part ${String(index + 1).padStart(2, "0")}`;
-  const partTitleLabel = safePart.title || partOrderLabel;
 
   return `
     <article class="rounded-[24px] border border-slate-200 bg-white p-5" data-part-card>
@@ -118,13 +129,22 @@ export function renderContentPartCard(part, index) {
             class="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white sm:min-w-[240px]"
           />
         </div>
-        <button
-          type="button"
-          data-remove-part
-          class="inline-flex items-center justify-center rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-500 transition hover:border-slate-300 hover:bg-slate-50"
-        >
-          파트 삭제
-        </button>
+        <div class="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            data-open-part-note-viewer
+            class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-100"
+          >
+            전체 보기
+          </button>
+          <button
+            type="button"
+            data-remove-part
+            class="inline-flex items-center justify-center rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-500 transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            파트 삭제
+          </button>
+        </div>
       </div>
 
       <div class="mt-4 grid gap-3 xl:grid-cols-2">
@@ -134,10 +154,8 @@ export function renderContentPartCard(part, index) {
           label: "아이디어",
           value: safePart.idea,
           placeholder: "이 파트에서 전달할 메시지, 감정, 훅",
-          viewerKey: `part:${safePart.id}:idea`,
-          viewerTitle: `${partTitleLabel} · 아이디어`,
-          viewerCaption: "파트 메모",
-          rows: 5
+          rows: 5,
+          showViewerButton: false
         })}
         ${renderExpandableTextareaField({
           name: "partScript",
@@ -145,10 +163,8 @@ export function renderContentPartCard(part, index) {
           label: "대본",
           value: safePart.script,
           placeholder: "이 파트의 대사, 장면 전개, 나레이션",
-          viewerKey: `part:${safePart.id}:script`,
-          viewerTitle: `${partTitleLabel} · 대본`,
-          viewerCaption: "파트 메모",
-          rows: 5
+          rows: 5,
+          showViewerButton: false
         })}
         ${renderExpandableTextareaField({
           name: "partFilming",
@@ -156,10 +172,8 @@ export function renderContentPartCard(part, index) {
           label: "촬영 메모",
           value: safePart.filming,
           placeholder: "카메라 구도, B-roll, 필요한 소스",
-          viewerKey: `part:${safePart.id}:filming`,
-          viewerTitle: `${partTitleLabel} · 촬영 메모`,
-          viewerCaption: "파트 메모",
-          rows: 5
+          rows: 5,
+          showViewerButton: false
         })}
         ${renderExpandableTextareaField({
           name: "partEditing",
@@ -167,10 +181,8 @@ export function renderContentPartCard(part, index) {
           label: "편집 메모",
           value: safePart.editing,
           placeholder: "컷 편집, 자막, 효과음, 강조 포인트",
-          viewerKey: `part:${safePart.id}:editing`,
-          viewerTitle: `${partTitleLabel} · 편집 메모`,
-          viewerCaption: "파트 메모",
-          rows: 5
+          rows: 5,
+          showViewerButton: false
         })}
       </div>
     </article>
@@ -349,7 +361,17 @@ export function renderFeedbackPanel({
 }
 
 export function renderContentDetail(content, feedback = [], attachments = []) {
-  const thumbnail = content.thumbnail_signed_url || content.thumbnail_url || "";
+  const latestThumbnailAttachment = [...attachments]
+    .filter((item) => item.kind === "thumbnail" && item.signed_url)
+    .sort(
+      (left, right) =>
+        new Date(right.created_at || 0).getTime() - new Date(left.created_at || 0).getTime()
+    )[0];
+  const thumbnail =
+    content.thumbnail_signed_url ||
+    latestThumbnailAttachment?.signed_url ||
+    (/^https?:\/\//.test(content.thumbnail_url || "") ? content.thumbnail_url : "") ||
+    "";
   const sections = content.planSections || {};
 
   return `
@@ -489,7 +511,9 @@ export function renderContentDetail(content, feedback = [], attachments = []) {
             thumbnail
               ? `
                 <div class="mt-4 overflow-hidden rounded-[22px] border border-slate-200 bg-white">
-                  <img src="${escapeHtml(thumbnail)}" alt="${escapeHtml(content.title)} 썸네일" class="h-52 w-full object-cover" />
+                  <a href="${escapeHtml(thumbnail)}" target="_blank" rel="noreferrer" class="block">
+                    <img src="${escapeHtml(thumbnail)}" alt="${escapeHtml(content.title || "콘텐츠")} 썸네일" class="h-52 w-full object-cover" />
+                  </a>
                 </div>
               `
               : `

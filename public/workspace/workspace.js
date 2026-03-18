@@ -7,7 +7,7 @@ import {
   renderContentDetail,
   renderContentPartCard,
   renderContentPartEditor
-} from "/components/comments.js?v=20260318a";
+} from "/components/comments.js?v=20260318b";
 import {
   CONTENT_PLAN_STAGES,
   CONTENT_STATUS_OPTIONS,
@@ -886,16 +886,15 @@ function renderExpandableTextareaField({
   label,
   value,
   placeholder,
-  viewerKey,
-  viewerTitle,
+  viewerKey = "",
+  viewerTitle = "",
   viewerCaption = "",
   rows = 6,
-  wrapperClass = ""
+  wrapperClass = "",
+  showViewerButton = Boolean(viewerKey)
 }) {
-  return `
-    <div${wrapperClass ? ` class="${wrapperClass}"` : ""}>
-      <div class="flex items-center justify-between gap-3">
-        <label class="block text-sm font-medium text-slate-700" for="${escapeHtml(id)}">${escapeHtml(label)}</label>
+  const viewerButton = showViewerButton && viewerKey
+    ? `
         <button
           type="button"
           data-open-note-viewer
@@ -904,16 +903,29 @@ function renderExpandableTextareaField({
         >
           전체 보기
         </button>
-      </div>
-      <textarea
-        id="${escapeHtml(id)}"
-        name="${escapeHtml(name)}"
-        rows="${rows}"
+      `
+    : "";
+  const viewerAttributes = viewerKey
+    ? `
         data-viewer-source
         data-viewer-key="${escapeHtml(viewerKey)}"
         data-viewer-label="${escapeHtml(label)}"
         data-viewer-title="${escapeHtml(viewerTitle || label)}"
         data-viewer-caption="${escapeHtml(viewerCaption)}"
+      `
+    : "";
+
+  return `
+    <div${wrapperClass ? ` class="${wrapperClass}"` : ""}>
+      <div class="flex items-center justify-between gap-3">
+        <label class="block text-sm font-medium text-slate-700" for="${escapeHtml(id)}">${escapeHtml(label)}</label>
+        ${viewerButton}
+      </div>
+      <textarea
+        id="${escapeHtml(id)}"
+        name="${escapeHtml(name)}"
+        rows="${rows}"
+        ${viewerAttributes}
         class="mt-2 min-h-[168px] w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 outline-none transition focus:border-slate-400 focus:bg-white"
         placeholder="${escapeHtml(placeholder)}"
       >${escapeHtml(value || "")}</textarea>
@@ -1103,6 +1115,23 @@ function buildNoteViewerMarkup() {
     <div class="workspace-note-viewer hidden" data-note-viewer>
       <div class="workspace-note-viewer__backdrop" data-note-viewer-backdrop></div>
       <div class="workspace-note-viewer__panel workspace-scrollbar">
+        <button
+          type="button"
+          data-note-viewer-prev
+          class="workspace-note-viewer__nav workspace-note-viewer__nav--prev"
+        >
+          <span aria-hidden="true">&larr;</span>
+          <span class="hidden sm:inline">이전 파트</span>
+        </button>
+        <button
+          type="button"
+          data-note-viewer-next
+          class="workspace-note-viewer__nav workspace-note-viewer__nav--next"
+        >
+          <span class="hidden sm:inline">다음 파트</span>
+          <span aria-hidden="true">&rarr;</span>
+        </button>
+
         <div class="flex items-start justify-between gap-4">
           <div class="min-w-0">
             <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500" data-note-viewer-caption>
@@ -1112,38 +1141,42 @@ function buildNoteViewerMarkup() {
               메모 전체 보기
             </h3>
           </div>
-          <button
-            type="button"
-            data-close-note-viewer
-            class="rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-500 transition hover:border-slate-300 hover:bg-slate-50"
-          >
-            닫기
-          </button>
+          <div class="flex items-center gap-2">
+            <p class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-500" data-note-viewer-index>1 / 1</p>
+            <button
+              type="button"
+              data-close-note-viewer
+              class="rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-500 transition hover:border-slate-300 hover:bg-slate-50"
+            >
+              닫기
+            </button>
+          </div>
         </div>
 
-        <textarea
-          data-note-viewer-textarea
-          rows="18"
-          class="mt-6 min-h-[420px] w-full rounded-[28px] border border-slate-200 bg-slate-50 px-5 py-4 text-base leading-8 text-slate-800 outline-none transition focus:border-slate-400 focus:bg-white"
-        ></textarea>
+        <div data-note-viewer-single>
+          <textarea
+            data-note-viewer-textarea
+            rows="18"
+            class="mt-6 min-h-[420px] w-full rounded-[28px] border border-slate-200 bg-slate-50 px-5 py-4 text-base leading-8 text-slate-800 outline-none transition focus:border-slate-400 focus:bg-white"
+          ></textarea>
+        </div>
 
-        <div class="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <p class="text-sm text-slate-500" data-note-viewer-index>1 / 1</p>
-          <div class="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              data-note-viewer-prev
-              class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-100"
-            >
-              &larr; 이전
-            </button>
-            <button
-              type="button"
-              data-note-viewer-next
-              class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-            >
-              다음 &rarr;
-            </button>
+        <div class="mt-6 hidden gap-4 xl:grid-cols-2" data-note-viewer-part>
+          <div class="workspace-note-viewer__field">
+            <label class="text-sm font-medium text-slate-700" for="note-viewer-part-idea">아이디어</label>
+            <textarea id="note-viewer-part-idea" data-part-viewer-field="idea" rows="8" class="mt-2 min-h-[220px] w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-7 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"></textarea>
+          </div>
+          <div class="workspace-note-viewer__field">
+            <label class="text-sm font-medium text-slate-700" for="note-viewer-part-script">대본</label>
+            <textarea id="note-viewer-part-script" data-part-viewer-field="script" rows="8" class="mt-2 min-h-[220px] w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-7 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"></textarea>
+          </div>
+          <div class="workspace-note-viewer__field">
+            <label class="text-sm font-medium text-slate-700" for="note-viewer-part-filming">촬영 메모</label>
+            <textarea id="note-viewer-part-filming" data-part-viewer-field="filming" rows="8" class="mt-2 min-h-[220px] w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-7 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"></textarea>
+          </div>
+          <div class="workspace-note-viewer__field">
+            <label class="text-sm font-medium text-slate-700" for="note-viewer-part-editing">편집 메모</label>
+            <textarea id="note-viewer-part-editing" data-part-viewer-field="editing" rows="8" class="mt-2 min-h-[220px] w-full rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-7 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"></textarea>
           </div>
         </div>
       </div>
@@ -1167,15 +1200,25 @@ function bindExpandedNoteViewer(modalRoot) {
   }
 
   const viewer = panel.querySelector("[data-note-viewer]");
+  const viewerSingle = panel.querySelector("[data-note-viewer-single]");
+  const viewerPart = panel.querySelector("[data-note-viewer-part]");
   const viewerTextarea = panel.querySelector("[data-note-viewer-textarea]");
   const viewerTitle = panel.querySelector("[data-note-viewer-title]");
   const viewerCaption = panel.querySelector("[data-note-viewer-caption]");
   const viewerIndex = panel.querySelector("[data-note-viewer-index]");
   const prevButton = panel.querySelector("[data-note-viewer-prev]");
   const nextButton = panel.querySelector("[data-note-viewer-next]");
+  const partViewerFields = Object.fromEntries(
+    Array.from(panel.querySelectorAll("[data-part-viewer-field]")).map((field) => [
+      field.getAttribute("data-part-viewer-field"),
+      field
+    ])
+  );
 
   if (
     !(viewer instanceof HTMLElement) ||
+    !(viewerSingle instanceof HTMLElement) ||
+    !(viewerPart instanceof HTMLElement) ||
     !(viewerTextarea instanceof HTMLTextAreaElement) ||
     !(viewerTitle instanceof HTMLElement) ||
     !(viewerCaption instanceof HTMLElement) ||
@@ -1186,15 +1229,28 @@ function bindExpandedNoteViewer(modalRoot) {
     return;
   }
 
+  const partFieldConfig = [
+    { key: "idea", name: "partIdea", label: "아이디어" },
+    { key: "script", name: "partScript", label: "대본" },
+    { key: "filming", name: "partFilming", label: "촬영 메모" },
+    { key: "editing", name: "partEditing", label: "편집 메모" }
+  ];
   const getSources = () =>
     Array.from(panel.querySelectorAll("[data-viewer-source]")).filter(
       (node) => node instanceof HTMLTextAreaElement
     );
+  const getPartCards = () =>
+    Array.from(panel.querySelectorAll("[data-part-card]")).filter(
+      (node) => node instanceof HTMLElement
+    );
+  const getPartField = (card, name) =>
+    card.querySelector(`textarea[name="${name}"]`);
 
+  let viewerMode = "single";
   let currentIndex = -1;
 
   const syncCurrentSource = () => {
-    if (currentIndex < 0) {
+    if (viewerMode !== "single" || currentIndex < 0) {
       return;
     }
 
@@ -1203,6 +1259,30 @@ function bindExpandedNoteViewer(modalRoot) {
     if (currentSource instanceof HTMLTextAreaElement) {
       currentSource.value = viewerTextarea.value;
     }
+  };
+
+  const syncCurrentPart = () => {
+    if (viewerMode !== "part" || currentIndex < 0) {
+      return;
+    }
+
+    const currentCard = getPartCards()[currentIndex];
+
+    if (!(currentCard instanceof HTMLElement)) {
+      return;
+    }
+
+    partFieldConfig.forEach(({ key, name }) => {
+      const source = getPartField(currentCard, name);
+      const editor = partViewerFields[key];
+
+      if (
+        source instanceof HTMLTextAreaElement &&
+        editor instanceof HTMLTextAreaElement
+      ) {
+        source.value = editor.value;
+      }
+    });
   };
 
   const getSourceTitle = (source) => {
@@ -1231,9 +1311,24 @@ function bindExpandedNoteViewer(modalRoot) {
     return source.dataset.viewerCaption || "전체 메모";
   };
 
-  const updateNavState = (sources) => {
+  const getPartTitle = (card) => {
+    const partTitleInput = card.querySelector('input[name="partTitle"]');
+    const partOrder = card.querySelector("[data-part-order]")?.textContent?.trim();
+    const partTitle =
+      partTitleInput instanceof HTMLInputElement
+        ? partTitleInput.value.trim()
+        : "";
+
+    return partTitle || partOrder || "파트";
+  };
+
+  const updateNavState = (total) => {
+    const hidden = total <= 1;
+
     prevButton.disabled = currentIndex <= 0;
-    nextButton.disabled = currentIndex >= sources.length - 1;
+    nextButton.disabled = currentIndex >= total - 1;
+    prevButton.classList.toggle("hidden", hidden);
+    nextButton.classList.toggle("hidden", hidden);
 
     [prevButton, nextButton].forEach((button) => {
       button.classList.toggle("opacity-40", button.disabled);
@@ -1241,14 +1336,22 @@ function bindExpandedNoteViewer(modalRoot) {
     });
   };
 
-  const renderViewerState = () => {
+  const renderSingleViewerState = () => {
     const sources = getSources();
+
+    if (currentIndex < 0) {
+      return;
+    }
 
     if (!sources.length) {
       viewer.classList.add("hidden");
       currentIndex = -1;
       return;
     }
+
+    viewerMode = "single";
+    viewerSingle.classList.remove("hidden");
+    viewerPart.classList.add("hidden");
 
     currentIndex = Math.max(0, Math.min(currentIndex, sources.length - 1));
     const source = sources[currentIndex];
@@ -1257,10 +1360,41 @@ function bindExpandedNoteViewer(modalRoot) {
     viewerCaption.textContent = getSourceCaption(source);
     viewerTextarea.value = source.value;
     viewerIndex.textContent = `${currentIndex + 1} / ${sources.length}`;
-    updateNavState(sources);
+    updateNavState(sources.length);
   };
 
-  const openViewerAt = (index) => {
+  const renderPartViewerState = () => {
+    const cards = getPartCards();
+
+    if (!cards.length) {
+      viewer.classList.add("hidden");
+      currentIndex = -1;
+      return;
+    }
+
+    viewerMode = "part";
+    viewerSingle.classList.add("hidden");
+    viewerPart.classList.remove("hidden");
+
+    currentIndex = Math.max(0, Math.min(currentIndex, cards.length - 1));
+    const card = cards[currentIndex];
+
+    viewerTitle.textContent = `${getPartTitle(card)} 전체 메모`;
+    viewerCaption.textContent = "파트 메모";
+    viewerIndex.textContent = `${currentIndex + 1} / ${cards.length}`;
+    updateNavState(cards.length);
+
+    partFieldConfig.forEach(({ key, name }) => {
+      const source = getPartField(card, name);
+      const editor = partViewerFields[key];
+
+      if (editor instanceof HTMLTextAreaElement) {
+        editor.value = source instanceof HTMLTextAreaElement ? source.value : "";
+      }
+    });
+  };
+
+  const openSingleViewerAt = (index) => {
     const sources = getSources();
 
     if (!sources.length) {
@@ -1269,7 +1403,7 @@ function bindExpandedNoteViewer(modalRoot) {
 
     currentIndex = Math.max(0, Math.min(index, sources.length - 1));
     viewer.classList.remove("hidden");
-    renderViewerState();
+    renderSingleViewerState();
     viewerTextarea.focus();
     viewerTextarea.setSelectionRange(
       viewerTextarea.value.length,
@@ -1277,14 +1411,40 @@ function bindExpandedNoteViewer(modalRoot) {
     );
   };
 
+  const openPartViewerAt = (index) => {
+    const cards = getPartCards();
+
+    if (!cards.length) {
+      return;
+    }
+
+    currentIndex = Math.max(0, Math.min(index, cards.length - 1));
+    viewer.classList.remove("hidden");
+    renderPartViewerState();
+
+    const firstField = partViewerFields.idea;
+    if (firstField instanceof HTMLTextAreaElement) {
+      firstField.focus();
+      firstField.setSelectionRange(firstField.value.length, firstField.value.length);
+    }
+  };
+
   const closeViewer = () => {
     syncCurrentSource();
+    syncCurrentPart();
     viewer.classList.add("hidden");
     currentIndex = -1;
   };
 
   viewerTextarea.addEventListener("input", () => {
     syncCurrentSource();
+  });
+  Object.values(partViewerFields).forEach((field) => {
+    if (field instanceof HTMLTextAreaElement) {
+      field.addEventListener("input", () => {
+        syncCurrentPart();
+      });
+    }
   });
 
   panel.addEventListener("click", (event) => {
@@ -1304,7 +1464,21 @@ function bindExpandedNoteViewer(modalRoot) {
       );
 
       if (nextIndex >= 0) {
-        openViewerAt(nextIndex);
+        openSingleViewerAt(nextIndex);
+      }
+
+      return;
+    }
+
+    const partOpenButton = target.closest("[data-open-part-note-viewer]");
+
+    if (partOpenButton instanceof HTMLElement) {
+      const partCard = partOpenButton.closest("[data-part-card]");
+      const cards = getPartCards();
+      const nextIndex = cards.indexOf(partCard);
+
+      if (nextIndex >= 0) {
+        openPartViewerAt(nextIndex);
       }
 
       return;
@@ -1320,13 +1494,26 @@ function bindExpandedNoteViewer(modalRoot) {
 
     if (target.closest("[data-note-viewer-prev]")) {
       syncCurrentSource();
-      openViewerAt(currentIndex - 1);
+      syncCurrentPart();
+
+      if (viewerMode === "part") {
+        openPartViewerAt(currentIndex - 1);
+      } else {
+        openSingleViewerAt(currentIndex - 1);
+      }
+
       return;
     }
 
     if (target.closest("[data-note-viewer-next]")) {
       syncCurrentSource();
-      openViewerAt(currentIndex + 1);
+      syncCurrentPart();
+
+      if (viewerMode === "part") {
+        openPartViewerAt(currentIndex + 1);
+      } else {
+        openSingleViewerAt(currentIndex + 1);
+      }
     }
   });
 }
@@ -1592,16 +1779,13 @@ async function uploadAttachment({ contentId, title, kind, file }) {
     })
   });
 
-  const uploadFormData = new FormData();
-  uploadFormData.append("cacheControl", "3600");
-  uploadFormData.append("", file, file.name);
-
   const uploadResponse = await fetch(uploadMeta.signedUrl, {
     method: "PUT",
     headers: {
+      "content-type": file.type || "application/octet-stream",
       "x-upsert": "true"
     },
-    body: uploadFormData
+    body: file
   });
 
   if (!uploadResponse.ok) {
