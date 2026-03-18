@@ -1,7 +1,7 @@
 import {
   CONTENT_STATUS_OPTIONS,
   createEmptyPart
-} from "/components/content-plan.js";
+} from "/components/content-plan.js?v=20260318d";
 
 const STATUS_LABELS = Object.fromEntries(
   CONTENT_STATUS_OPTIONS.map((item) => [item.id, item.label])
@@ -46,6 +46,118 @@ function formatDate(value, options = {}) {
   ).format(parsed);
 }
 
+function buildEditorTooltip(editor, editedAt) {
+  if (!editor?.displayName && !editor?.email && !editedAt) {
+    return "";
+  }
+
+  const parts = [];
+
+  if (editor?.displayName) {
+    parts.push(editor.displayName);
+  } else if (editor?.email) {
+    parts.push(editor.email);
+  }
+
+  if (editedAt) {
+    parts.push(
+      formatDate(editedAt, {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      })
+    );
+  }
+
+  return parts.join(" · ");
+}
+
+function renderEditorBadge(editor, editedAt) {
+  const label = String(editor?.label || "").trim().toLowerCase().slice(0, 4);
+
+  if (!label) {
+    return "";
+  }
+
+  const tooltip = buildEditorTooltip(editor, editedAt);
+
+  return `
+    <span
+      class="workspace-editor-badge"
+      title="${escapeHtml(tooltip || label)}"
+      aria-label="${escapeHtml(tooltip || label)}"
+    >
+      ${escapeHtml(label)}
+    </span>
+  `;
+}
+
+function renderContentEditorMeta(editor, editedAt) {
+  const tooltip = buildEditorTooltip(editor, editedAt);
+  const label = String(editor?.label || "").trim().toLowerCase().slice(0, 4);
+
+  if (!label && !tooltip) {
+    return "";
+  }
+
+  return `
+    <span
+      class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500"
+      title="${escapeHtml(tooltip || label)}"
+    >
+      ${label ? `<span class="workspace-editor-badge workspace-editor-badge--inline">${escapeHtml(label)}</span>` : ""}
+      <span>${escapeHtml(tooltip || "최근 작업 기록")}</span>
+    </span>
+  `;
+}
+
+function collectThumbnailGalleryItems(content, attachments) {
+  const items = [];
+  const seenUrls = new Set();
+
+  const pushItem = (url, options = {}) => {
+    const normalizedUrl = String(url || "").trim();
+
+    if (!normalizedUrl || seenUrls.has(normalizedUrl)) {
+      return;
+    }
+
+    seenUrls.add(normalizedUrl);
+    items.push({
+      url: normalizedUrl,
+      title: options.title || content.title || "Thumbnail Reference",
+      caption: options.caption || "",
+      createdAt: options.createdAt || "",
+      uploadedBy: options.uploadedBy || ""
+    });
+  };
+
+  const latestThumbnail =
+    content.thumbnail_signed_url ||
+    (/^https?:\/\//.test(content.thumbnail_url || "") ? content.thumbnail_url : "");
+
+  pushItem(latestThumbnail, {
+    title: content.title ? `${content.title} Main Thumbnail` : "Main Thumbnail"
+  });
+
+  [...attachments]
+    .filter((item) => item.kind === "thumbnail" && item.signed_url)
+    .sort(
+      (left, right) =>
+        new Date(right.created_at || 0).getTime() - new Date(left.created_at || 0).getTime()
+    )
+    .forEach((item, index) => {
+      pushItem(item.signed_url, {
+        title: item.title || item.file_name || `Thumbnail ${index + 1}`,
+        caption: item.title || item.file_name || "",
+        createdAt: item.created_at,
+        uploadedBy: item.uploaded_by
+      });
+    });
+
+  return items;
+}
 function renderExpandableTextareaField({
   id,
   name,
@@ -121,7 +233,10 @@ export function renderContentPartCard(part, index) {
       <input type="hidden" name="partId" value="${escapeHtml(safePart.id)}" />
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p data-part-order class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">${escapeHtml(partOrderLabel)}</p>
+          <div class="flex flex-wrap items-center gap-2">
+            <p data-part-order class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">${escapeHtml(partOrderLabel)}</p>
+            <span data-part-editor-slot>${renderEditorBadge(safePart.lastEditedBy, safePart.lastEditedAt)}</span>
+          </div>
           <input
             name="partTitle"
             value="${escapeHtml(safePart.title)}"
@@ -361,17 +476,8 @@ export function renderFeedbackPanel({
 }
 
 export function renderContentDetail(content, feedback = [], attachments = []) {
-  const latestThumbnailAttachment = [...attachments]
-    .filter((item) => item.kind === "thumbnail" && item.signed_url)
-    .sort(
-      (left, right) =>
-        new Date(right.created_at || 0).getTime() - new Date(left.created_at || 0).getTime()
-    )[0];
-  const thumbnail =
-    content.thumbnail_signed_url ||
-    latestThumbnailAttachment?.signed_url ||
-    (/^https?:\/\//.test(content.thumbnail_url || "") ? content.thumbnail_url : "") ||
-    "";
+  const thumbnailItems = collectThumbnailGalleryItems(content, attachments);
+  const thumbnail = thumbnailItems[0]?.url || "";
   const sections = content.planSections || {};
 
   return `
@@ -396,6 +502,15 @@ export function renderContentDetail(content, feedback = [], attachments = []) {
 
         <form class="space-y-5" data-content-edit-form>
           <input type="hidden" name="contentId" value="${escapeHtml(content.id)}" />
+          <div class="flex flex-wrap items-center justify-between gap-3 rounded-[22px] border border-emerald-100 bg-emerald-50/70 px-4 py-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700" data-autosave-status>
+                모든 변경사항이 저장되었습니다.
+              </span>
+              <span data-content-editor-meta>${renderContentEditorMeta(content.lastEditedBy, content.lastEditedAt)}</span>
+            </div>
+            <p class="text-xs text-slate-500">저장 버튼을 누르지 않아도 자동 저장됩니다.</p>
+          </div>
           <div class="rounded-[26px] border border-slate-200 bg-white p-4">
             <div>
               <label class="block text-sm font-medium text-slate-700" for="detail-title">제목</label>
@@ -490,8 +605,13 @@ export function renderContentDetail(content, feedback = [], attachments = []) {
 
           ${renderContentPartEditor(content.parts || [])}
 
+          <div class="flex items-center justify-between gap-3 text-sm text-slate-500">
+            <p>상세 창을 닫을 때 마지막 수정 내용까지 자동으로 저장됩니다.</p>
+          </div>
+
           <button
             type="submit"
+            data-content-save-button
             class="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
             기획안 저장
@@ -511,6 +631,7 @@ export function renderContentDetail(content, feedback = [], attachments = []) {
             class="mt-4 overflow-hidden rounded-[22px] border border-slate-200 bg-white"
             data-thumbnail-preview
             data-thumbnail-current="${escapeHtml(thumbnail)}"
+            data-thumbnail-items="${escapeHtml(JSON.stringify(thumbnailItems))}"
           >
             <a
               href="${escapeHtml(thumbnail || "#")}"
@@ -632,3 +753,4 @@ export function renderContentDetail(content, feedback = [], attachments = []) {
     </div>
   `;
 }
+
