@@ -30,7 +30,9 @@ exports.handler = async function handler(event) {
         displayName: user.displayName,
         roles: user.roles,
         creatorId: effectiveCreatorId,
-        isCompanyAdmin: user.isCompanyAdmin
+        isCompanyAdmin: user.isCompanyAdmin,
+        loginId: user.loginId,
+        workspaceProfile: user.workspaceProfile
       },
       redirectCreatorId: effectiveCreatorId,
       creators
