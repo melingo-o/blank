@@ -1,6 +1,6 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 import { renderChannelPlanPanel } from "/components/channel-plan.js?v=20260311d";
-import { renderSidebar } from "/components/sidebar.js?v=20260318f";
+import { renderSidebar } from "/components/sidebar.js?v=20260318g";
 import { renderKanban } from "/components/kanban.js?v=20260311d";
 import {
   renderFeedbackPanel,
@@ -505,33 +505,33 @@ function renderHeader() {
   const creator = state.workspace?.creator || {};
 
   refs.header.innerHTML = `
-    <div class="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
-      <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
+    <div class="workspace-header__inner mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
+      <div class="workspace-header__row flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div class="workspace-header__body">
           <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">크리에이터 전용 워크스페이스</p>
-          <h1 class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+          <h1 class="workspace-header__title mt-2 text-3xl font-semibold tracking-tight text-slate-950">
             ${escapeHtml(creator.name || "크리에이터")} <span class="text-slate-400">/ ${escapeHtml(creator.channel_name || creator.id || "")}</span>
           </h1>
         </div>
-        <div class="grid gap-2 sm:grid-cols-3">
+        <div class="workspace-header__actions grid gap-2 sm:grid-cols-3">
           <button
             type="button"
             data-header-action="meeting"
-            class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+            class="workspace-header__action workspace-header__action--secondary inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
           >
             미팅 추가
           </button>
           <button
             type="button"
             data-header-action="content"
-            class="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+            class="workspace-header__action workspace-header__action--secondary inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
           >
             콘텐츠 추가
           </button>
           <button
             type="button"
             data-header-action="milestone"
-            class="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+            class="workspace-header__action workspace-header__action--primary inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
             마일스톤 추가
           </button>
