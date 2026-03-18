@@ -1,7 +1,7 @@
 import {
   CONTENT_STATUS_OPTIONS,
   createEmptyPart
-} from "/components/content-plan.js?v=20260318d";
+} from "/components/content-plan.js?v=20260318f";
 
 const STATUS_LABELS = Object.fromEntries(
   CONTENT_STATUS_OPTIONS.map((item) => [item.id, item.label])
@@ -13,6 +13,15 @@ const ATTACHMENT_KIND_LABELS = {
   pdf_note: "PDF 노트",
   reference: "참고 자료"
 };
+
+const EDITOR_COLOR_OPTIONS = new Set([
+  "slate",
+  "blue",
+  "emerald",
+  "amber",
+  "rose",
+  "violet"
+]);
 
 function escapeHtml(value = "") {
   return String(value)
@@ -47,13 +56,23 @@ function formatDate(value, options = {}) {
 }
 
 function buildEditorTooltip(editor, editedAt) {
-  if (!editor?.displayName && !editor?.email && !editedAt) {
+  if (
+    !editor?.nickname &&
+    !editor?.loginId &&
+    !editor?.displayName &&
+    !editor?.email &&
+    !editedAt
+  ) {
     return "";
   }
 
   const parts = [];
 
-  if (editor?.displayName) {
+  if (editor?.nickname) {
+    parts.push(editor.nickname);
+  } else if (editor?.loginId) {
+    parts.push(editor.loginId);
+  } else if (editor?.displayName) {
     parts.push(editor.displayName);
   } else if (editor?.email) {
     parts.push(editor.email);
@@ -73,10 +92,16 @@ function buildEditorTooltip(editor, editedAt) {
   return parts.join(" · ");
 }
 
+function normalizeEditorColor(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return EDITOR_COLOR_OPTIONS.has(normalized) ? normalized : "slate";
+}
+
 function renderEditorBadge(editor, editedAt) {
   const label = String(editor?.label || "").trim().toLowerCase().slice(0, 4);
+  const normalizedLabel = label === "admi" ? "admin" : label;
 
-  if (!label) {
+  if (!normalizedLabel) {
     return "";
   }
 
@@ -85,19 +110,31 @@ function renderEditorBadge(editor, editedAt) {
   return `
     <span
       class="workspace-editor-badge"
+      data-editor-color="${escapeHtml(normalizeEditorColor(editor?.color))}"
       title="${escapeHtml(tooltip || label)}"
       aria-label="${escapeHtml(tooltip || label)}"
     >
-      ${escapeHtml(label)}
+      ${escapeHtml(normalizedLabel)}
     </span>
   `;
 }
 
 function renderContentEditorMeta(editor, editedAt) {
   const tooltip = buildEditorTooltip(editor, editedAt);
-  const label = String(editor?.label || "").trim().toLowerCase().slice(0, 4);
+  const rawLabel = String(editor?.label || "").trim().toLowerCase();
+  const label = rawLabel === "admin" ? "admin" : (rawLabel === "admi" ? "admin" : rawLabel.slice(0, 4));
+  const badge = label
+    ? `
+        <span
+          class="workspace-editor-badge workspace-editor-badge--inline"
+          data-editor-color="${escapeHtml(normalizeEditorColor(editor?.color))}"
+        >
+          ${escapeHtml(label)}
+        </span>
+      `
+    : "";
 
-  if (!label && !tooltip) {
+  if (!badge && !tooltip) {
     return "";
   }
 
@@ -106,7 +143,7 @@ function renderContentEditorMeta(editor, editedAt) {
       class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500"
       title="${escapeHtml(tooltip || label)}"
     >
-      ${label ? `<span class="workspace-editor-badge workspace-editor-badge--inline">${escapeHtml(label)}</span>` : ""}
+      ${badge}
       <span>${escapeHtml(tooltip || "최근 작업 기록")}</span>
     </span>
   `;
