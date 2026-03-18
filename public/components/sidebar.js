@@ -144,7 +144,7 @@ export function renderSidebar({
               channelUrl
                 ? `
                   <a
-                    class="mt-4 inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                    class="workspace-sidebar__channel-link mt-4 inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
                     href="${escapeHtml(channelUrl)}"
                     target="_blank"
                     rel="noreferrer"
@@ -196,9 +196,9 @@ export function renderSidebar({
                     <button
                       type="button"
                       data-sidebar-tab="${escapeHtml(value)}"
-                      class="flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left text-sm font-medium transition ${
+                      class="workspace-sidebar__nav-button flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left text-sm font-medium transition ${
                         activeTab === value
-                          ? "bg-slate-900 text-white shadow-[0_12px_24px_rgba(15,23,42,0.18)]"
+                          ? "is-active bg-slate-900 text-white shadow-[0_12px_24px_rgba(15,23,42,0.18)]"
                           : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                       }"
                     >
@@ -253,14 +253,14 @@ export function renderSidebar({
                 <button
                   type="button"
                   data-open-profile-settings
-                  class="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+                  class="workspace-sidebar__utility-button rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
                 >
                   작업자 설정
                 </button>
                 <button
                   type="button"
                   data-sign-out
-                  class="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+                  class="workspace-sidebar__utility-button rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
                 >
                   Sign out
                 </button>
