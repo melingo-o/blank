@@ -1,6 +1,5 @@
 "use client"
 
-import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
@@ -29,6 +28,7 @@ type CreatorWorkspaceManagerProps = {
   onRefreshCreators: () => Promise<void> | void
   onCreatorsChanged: (preferredCreatorId?: string | null) => Promise<void> | void
   callAdminCreatorApi: AdminCreatorApiCaller
+  onOpenWorkspace: (workspacePath: string) => Promise<void> | void
 }
 
 function generateTempPassword() {
@@ -51,7 +51,8 @@ export default function CreatorWorkspaceManager({
   onSelectCreator,
   onRefreshCreators,
   onCreatorsChanged,
-  callAdminCreatorApi
+  callAdminCreatorApi,
+  onOpenWorkspace
 }: CreatorWorkspaceManagerProps) {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -326,14 +327,15 @@ export default function CreatorWorkspaceManager({
                   </p>
                 )}
                 <div className="flex flex-wrap gap-2">
-                  {hasIssuedAccount(selectedCreator) && (
-                    <Link
-                      href={`/workspace/${selectedCreator.id}`}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void onOpenWorkspace(`/workspace/${selectedCreator.id}`)
+                      }
                       className="rounded-full border border-border px-4 py-2 text-[11px] uppercase tracking-[0.25em] text-foreground boty-transition hover:bg-muted"
                     >
                       워크스페이스 이동
-                    </Link>
-                  )}
+                    </button>
                   {selectedCreator.channel_url && (
                     <a
                       href={selectedCreator.channel_url}
@@ -511,12 +513,13 @@ export default function CreatorWorkspaceManager({
                   >
                     계정관리
                   </button>
-                  <Link
-                    href={`/workspace/${creator.id}`}
+                  <button
+                    type="button"
+                    onClick={() => void onOpenWorkspace(`/workspace/${creator.id}`)}
                     className="rounded-full border border-border px-4 py-2 text-[11px] uppercase tracking-[0.25em] text-foreground boty-transition hover:bg-muted"
                   >
                     워크스페이스 이동
-                  </Link>
+                  </button>
                   {creator.channel_url && (
                     <a
                       href={creator.channel_url}
