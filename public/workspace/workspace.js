@@ -183,6 +183,24 @@ async function initSession() {
   showAuthGate();
 }
 
+async function fetchWorkspacePayload() {
+  const payload = await authorizedJson(
+    `/.netlify/functions/workspace-data?creatorId=${encodeURIComponent(state.creatorId)}`
+  );
+
+  payload.contents = hydrateContents(payload.contents || []);
+  return payload;
+}
+
+function applyWorkspacePayload(payload) {
+  state.workspace = payload;
+  state.feedbackByContent = groupBy(payload.feedback || [], "content_id");
+  state.attachmentsByContent = groupBy(
+    (payload.attachments || []).filter((item) => item.content_id),
+    "content_id"
+  );
+}
+
 async function consumeSessionHandoff() {
   if (!window.sessionStorage) {
     return null;
@@ -314,20 +332,21 @@ async function handleAuthenticatedSession() {
   await loadWorkspace();
 }
 
-async function loadWorkspace() {
-  renderLoadingShell();
-  const payload = await authorizedJson(
-    `/.netlify/functions/workspace-data?creatorId=${encodeURIComponent(state.creatorId)}`
-  );
+async function loadWorkspace(options = {}) {
+  const { showLoading = true, render = true } = options;
 
-  payload.contents = hydrateContents(payload.contents || []);
-  state.workspace = payload;
-  state.feedbackByContent = groupBy(payload.feedback || [], "content_id");
-  state.attachmentsByContent = groupBy(
-    (payload.attachments || []).filter((item) => item.content_id),
-    "content_id"
-  );
-  renderWorkspace();
+  if (showLoading) {
+    renderLoadingShell();
+  }
+
+  const payload = await fetchWorkspacePayload();
+  applyWorkspacePayload(payload);
+
+  if (render) {
+    renderWorkspace();
+  }
+
+  return payload;
 }
 
 function renderWorkspace() {
@@ -800,7 +819,7 @@ async function mutateWorkspace(action, payload, options = {}) {
   await loadWorkspace();
 
   if (options.reopenContentId) {
-    openContentDetail(options.reopenContentId);
+    openContentDetail(options.reopenContentId, { refresh: false });
   }
 }
 
@@ -2224,7 +2243,7 @@ function bindAttachmentFormV2(form, contentId, thumbnailGallery) {
       clearObjectUrl();
       thumbnailGallery?.clearTemporaryItem();
       await loadWorkspace();
-      openContentDetail(contentId);
+      openContentDetail(contentId, { refresh: false });
       showToast("첨부 파일이 업로드되었습니다.", "success");
     } catch (error) {
       console.error(error);
@@ -2478,7 +2497,21 @@ function openMilestoneModal() {
     });
 }
 
-function openContentDetail(contentId) {
+async function openContentDetail(contentId, options = {}) {
+  const { refresh = true } = options;
+
+  if (refresh) {
+    try {
+      await loadWorkspace({
+        showLoading: false,
+        render: true
+      });
+    } catch (error) {
+      console.error(error);
+      showToast(error.message || "최신 작업 정보를 불러오지 못했습니다.", "error");
+    }
+  }
+
   const content = (state.workspace?.contents || []).find((item) => item.id === contentId);
 
   if (!content) {
