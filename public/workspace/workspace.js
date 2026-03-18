@@ -7,15 +7,16 @@ import {
   renderContentDetail,
   renderContentPartCard,
   renderContentPartEditor
-} from "/components/comments.js?v=20260318c";
+} from "/components/comments.js?v=20260318d";
 import {
   CONTENT_PLAN_STAGES,
   CONTENT_STATUS_OPTIONS,
   buildContentSavePayload,
   createDefaultPlanSections,
   createEmptyPart,
+  hydrateContentItem,
   hydrateContents
-} from "/components/content-plan.js?v=20260311d";
+} from "/components/content-plan.js?v=20260318d";
 import { renderTimeline } from "/components/timeline.js?v=20260311d";
 
 const TABS = [
@@ -50,6 +51,7 @@ const ATTACHMENT_LABELS = {
 };
 
 const WORKSPACE_SESSION_HANDOFF_KEY = "workspaceSessionHandoff";
+const CONTENT_AUTOSAVE_DELAY = 1200;
 
 const state = {
   config: null,
@@ -61,7 +63,8 @@ const state = {
   feedbackByContent: {},
   attachmentsByContent: {},
   activeTab: "overview",
-  sidebarCollapsed: false
+  sidebarCollapsed: false,
+  modalAutosave: null
 };
 
 const refs = {};
@@ -120,7 +123,7 @@ function bindGlobalUI() {
     }
 
     if (target.matches("[data-close-modal]") || target.matches(".workspace-modal__backdrop")) {
-      closeModal();
+      void requestCloseModal();
     }
   });
 
@@ -137,7 +140,7 @@ function bindGlobalUI() {
         return;
       }
 
-      closeModal();
+      void requestCloseModal();
     }
   });
 }
@@ -801,6 +804,443 @@ async function mutateWorkspace(action, payload, options = {}) {
   }
 }
 
+function normalizeEditableText(value) {
+  return String(value || "").trim();
+}
+
+function buildEditorShortLabel(value) {
+  const normalized = normalizeEditableText(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+
+  if (!normalized) {
+    return "";
+  }
+
+  return normalized.slice(0, normalized.length <= 3 ? 3 : 4);
+}
+
+function getCurrentEditorMetadata() {
+  const email = normalizeEditableText(state.session?.email).toLowerCase();
+  const emailLocal = email.includes("@") ? email.split("@")[0] : email;
+  const displayName = normalizeEditableText(state.session?.displayName);
+  const creatorId = normalizeEditableText(state.session?.creatorId || state.creatorId);
+  const label =
+    buildEditorShortLabel(displayName) ||
+    buildEditorShortLabel(emailLocal) ||
+    buildEditorShortLabel(creatorId) ||
+    "user";
+
+  return {
+    label,
+    displayName,
+    email
+  };
+}
+
+function buildEditorTooltip(editor, editedAt) {
+  const parts = [];
+
+  if (editor?.displayName) {
+    parts.push(editor.displayName);
+  } else if (editor?.email) {
+    parts.push(editor.email);
+  }
+
+  if (editedAt) {
+    parts.push(
+      formatDate(editedAt, {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      })
+    );
+  }
+
+  return parts.join(" · ");
+}
+
+function buildEditorBadgeMarkup(editor, editedAt, options = {}) {
+  const label = normalizeEditableText(editor?.label).toLowerCase().slice(0, 4);
+
+  if (!label) {
+    return "";
+  }
+
+  const tooltip = buildEditorTooltip(editor, editedAt) || label;
+  const inlineClass = options.inline ? " workspace-editor-badge--inline" : "";
+
+  return `
+    <span
+      class="workspace-editor-badge${inlineClass}"
+      title="${escapeHtml(tooltip)}"
+      aria-label="${escapeHtml(tooltip)}"
+    >
+      ${escapeHtml(label)}
+    </span>
+  `;
+}
+
+function buildContentEditorMetaMarkup(editor, editedAt) {
+  const tooltip = buildEditorTooltip(editor, editedAt);
+  const badge = buildEditorBadgeMarkup(editor, editedAt, { inline: true });
+
+  if (!tooltip && !badge) {
+    return "";
+  }
+
+  return `
+    <span
+      class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500"
+      title="${escapeHtml(tooltip || normalizeEditableText(editor?.label) || "최근 작업 기록")}"
+    >
+      ${badge}
+      <span>${escapeHtml(tooltip || "최근 작업 기록")}</span>
+    </span>
+  `;
+}
+
+function collectContentDraftData(formElement) {
+  const form = new FormData(formElement);
+  const partIds = form.getAll("partId");
+  const partTitles = form.getAll("partTitle");
+  const partIdeas = form.getAll("partIdea");
+  const partScripts = form.getAll("partScript");
+  const partFilmings = form.getAll("partFilming");
+  const partEditings = form.getAll("partEditing");
+
+  return {
+    contentId: String(form.get("contentId") || ""),
+    title: String(form.get("title") || ""),
+    status: String(form.get("status") || "idea"),
+    publishDate: String(form.get("publishDate") || ""),
+    sections: {
+      idea: String(form.get("sectionIdea") || ""),
+      thumbnail: String(form.get("sectionThumbnail") || ""),
+      script: String(form.get("sectionScript") || ""),
+      filming: String(form.get("sectionFilming") || ""),
+      editing: String(form.get("sectionEditing") || "")
+    },
+    parts: partIds.map((value, index) =>
+      createEmptyPart({
+        id: String(value || ""),
+        title: String(partTitles[index] || ""),
+        idea: String(partIdeas[index] || ""),
+        script: String(partScripts[index] || ""),
+        filming: String(partFilmings[index] || ""),
+        editing: String(partEditings[index] || "")
+      })
+    )
+  };
+}
+
+function buildContentPayloadFromDraft(
+  draft,
+  {
+    currentContent = null,
+    editor = null,
+    editedAt = ""
+  } = {}
+) {
+  const safeCurrentSections = createDefaultPlanSections(currentContent?.planSections || {});
+  const safeCurrentParts = Array.isArray(currentContent?.parts)
+    ? currentContent.parts.map((part) => createEmptyPart(part))
+    : [];
+  const currentPartById = new Map(safeCurrentParts.map((part) => [part.id, part]));
+  let partFieldChanged = false;
+
+  const mergedParts = (Array.isArray(draft.parts) ? draft.parts : []).map((part) => {
+    const nextPart = createEmptyPart(part);
+    const previousPart =
+      currentPartById.get(nextPart.id) ||
+      createEmptyPart({
+        id: nextPart.id
+      });
+    const changed = ["title", "idea", "script", "filming", "editing"].some(
+      (field) =>
+        normalizeEditableText(previousPart[field]) !== normalizeEditableText(nextPart[field])
+    );
+
+    if (changed) {
+      partFieldChanged = true;
+    }
+
+    return createEmptyPart({
+      ...nextPart,
+      lastEditedBy: changed && editor ? editor : previousPart.lastEditedBy,
+      lastEditedAt: changed && editor ? editedAt : previousPart.lastEditedAt
+    });
+  });
+
+  const sectionsChanged = ["idea", "thumbnail", "script", "filming", "editing"].some(
+    (field) =>
+      normalizeEditableText(safeCurrentSections[field]) !==
+      normalizeEditableText(draft.sections?.[field])
+  );
+  const partStructureChanged =
+    mergedParts.length !== safeCurrentParts.length ||
+    mergedParts.some((part, index) => part.id !== safeCurrentParts[index]?.id);
+  const contentChanged =
+    normalizeEditableText(currentContent?.title) !== normalizeEditableText(draft.title) ||
+    normalizeEditableText(currentContent?.status) !== normalizeEditableText(draft.status) ||
+    normalizeEditableText(currentContent?.publish_date) !==
+      normalizeEditableText(draft.publishDate) ||
+    sectionsChanged ||
+    partFieldChanged ||
+    partStructureChanged;
+  const meta =
+    contentChanged && editor
+      ? {
+          lastEditedBy: editor,
+          lastEditedAt: editedAt
+        }
+      : {
+          lastEditedBy: currentContent?.lastEditedBy,
+          lastEditedAt: currentContent?.lastEditedAt
+        };
+
+  return buildContentSavePayload({
+    contentId: draft.contentId,
+    title: draft.title,
+    status: draft.status,
+    publishDate: draft.publishDate,
+    sections: draft.sections,
+    parts: mergedParts,
+    meta
+  });
+}
+
+function buildContentDraftSnapshot(formElement) {
+  return JSON.stringify(collectContentDraftData(formElement));
+}
+
+function updateContentInState(content) {
+  const existingContents = state.workspace?.contents || [];
+  const existingContent = existingContents.find((item) => item.id === content?.id) || {};
+  const hydratedContent = hydrateContentItem({
+    ...existingContent,
+    ...(content || {})
+  });
+
+  if (state.workspace) {
+    state.workspace.contents = existingContents.map((item) =>
+      item.id === hydratedContent.id ? hydratedContent : item
+    );
+  }
+
+  return hydratedContent;
+}
+
+async function saveContentUpdate(payload) {
+  const response = await authorizedJson("/.netlify/functions/workspace-save", {
+    method: "POST",
+    body: JSON.stringify({
+      action: "updateContent",
+      creatorId: state.creatorId,
+      payload
+    })
+  });
+
+  return updateContentInState(response.data || payload);
+}
+
+function syncContentDetailMetadata(form, content) {
+  if (!(form instanceof HTMLFormElement)) {
+    return;
+  }
+
+  const metaSlot = form.querySelector("[data-content-editor-meta]");
+
+  if (metaSlot instanceof HTMLElement) {
+    metaSlot.innerHTML = buildContentEditorMetaMarkup(content?.lastEditedBy, content?.lastEditedAt);
+  }
+
+  const cards = form.querySelectorAll("[data-part-card]");
+  const parts = Array.isArray(content?.parts) ? content.parts : [];
+
+  cards.forEach((card, index) => {
+    const slot = card.querySelector("[data-part-editor-slot]");
+
+    if (slot instanceof HTMLElement) {
+      slot.innerHTML = buildEditorBadgeMarkup(parts[index]?.lastEditedBy, parts[index]?.lastEditedAt);
+    }
+  });
+}
+
+function setAutosaveStatus(controller, stateKey, message = "") {
+  if (!controller?.statusElement) {
+    return;
+  }
+
+  const statusText =
+    message ||
+    {
+      saved: "모든 변경사항이 저장되었습니다.",
+      dirty: "변경사항 저장 대기 중...",
+      saving: "자동 저장 중...",
+      error: "저장에 실패했습니다. 다시 시도해 주세요."
+    }[stateKey] ||
+    "자동 저장 준비 중";
+
+  controller.statusElement.textContent = statusText;
+  controller.statusElement.classList.remove(
+    "text-emerald-700",
+    "text-amber-700",
+    "text-rose-700",
+    "text-slate-600"
+  );
+  controller.statusElement.classList.add(
+    stateKey === "error"
+      ? "text-rose-700"
+      : stateKey === "dirty"
+        ? "text-amber-700"
+        : stateKey === "saving"
+          ? "text-slate-600"
+          : "text-emerald-700"
+  );
+}
+
+function clearAutosaveTimer(controller) {
+  if (controller?.timer) {
+    window.clearTimeout(controller.timer);
+    controller.timer = null;
+  }
+}
+
+function scheduleContentAutosave(targetController = state.modalAutosave) {
+  const controller = targetController;
+
+  if (!controller?.form || state.modalAutosave !== controller) {
+    return;
+  }
+
+  controller.dirty = true;
+  setAutosaveStatus(controller, "dirty");
+  clearAutosaveTimer(controller);
+  controller.timer = window.setTimeout(() => {
+    if (state.modalAutosave === controller) {
+      void flushContentAutosave();
+    }
+  }, CONTENT_AUTOSAVE_DELAY);
+}
+
+async function flushContentAutosave(options = {}) {
+  const controller = state.modalAutosave;
+
+  if (!controller?.form) {
+    return false;
+  }
+
+  const {
+    force = false,
+    toastOnSuccess = false,
+    toastOnError = true
+  } = options;
+
+  clearAutosaveTimer(controller);
+
+  const snapshot = buildContentDraftSnapshot(controller.form);
+
+  if (snapshot === controller.lastSavedSnapshot && !controller.dirty) {
+    return false;
+  }
+
+  if (!force && (!controller.dirty || snapshot === controller.lastSavedSnapshot)) {
+    return false;
+  }
+
+  if (controller.inFlight) {
+    controller.pending = true;
+    controller.pendingToast = controller.pendingToast || toastOnSuccess;
+    return controller.inFlight;
+  }
+
+  const payload = buildContentPayloadFromDraft(collectContentDraftData(controller.form), {
+    currentContent: controller.currentContent,
+    editor: getCurrentEditorMetadata(),
+    editedAt: new Date().toISOString()
+  });
+
+  setAutosaveStatus(controller, "saving");
+
+  if (controller.saveButton instanceof HTMLButtonElement) {
+    controller.saveButton.disabled = true;
+  }
+
+  controller.inFlight = (async () => {
+    try {
+      const savedContent = await saveContentUpdate(payload);
+      controller.currentContent = savedContent;
+      controller.lastSavedSnapshot = snapshot;
+      controller.dirty = false;
+      controller.hasCommittedChanges = true;
+      syncContentDetailMetadata(controller.form, savedContent);
+      setAutosaveStatus(controller, "saved");
+
+      if (toastOnSuccess || controller.pendingToast) {
+        showToast("콘텐츠 기획안이 저장되었습니다.", "success");
+      }
+
+      return true;
+    } catch (error) {
+      controller.dirty = true;
+      setAutosaveStatus(controller, "error", error.message || "");
+
+      if (toastOnError) {
+        showToast(error.message || "콘텐츠 기획안을 저장하지 못했습니다.", "error");
+      }
+
+      throw error;
+    } finally {
+      controller.inFlight = null;
+      controller.pendingToast = false;
+
+      if (controller.saveButton instanceof HTMLButtonElement) {
+        controller.saveButton.disabled = false;
+      }
+
+      const latestSnapshot = buildContentDraftSnapshot(controller.form);
+
+      if (latestSnapshot !== controller.lastSavedSnapshot) {
+        controller.dirty = true;
+        scheduleContentAutosave(controller);
+      }
+    }
+  })();
+
+  return controller.inFlight;
+}
+
+function createContentAutosaveController(form, content) {
+  if (!(form instanceof HTMLFormElement)) {
+    return null;
+  }
+
+  clearAutosaveTimer(state.modalAutosave);
+  state.modalAutosave = null;
+
+  const controller = {
+    form,
+    currentContent: content,
+    lastSavedSnapshot: buildContentDraftSnapshot(form),
+    dirty: false,
+    timer: null,
+    inFlight: null,
+    pending: false,
+    pendingToast: false,
+    hasCommittedChanges: false,
+    statusElement: form.querySelector("[data-autosave-status]"),
+    saveButton: form.querySelector("[data-content-save-button]")
+  };
+
+  state.modalAutosave = controller;
+  setAutosaveStatus(controller, "saved");
+  form.addEventListener("input", () => scheduleContentAutosave(controller));
+  form.addEventListener("change", () => scheduleContentAutosave(controller));
+  return controller;
+}
+
 async function handleDeleteContent(contentId) {
   if (!contentId) {
     return;
@@ -1084,6 +1524,7 @@ function bindPartEditor(form) {
       renderContentPartCard(createEmptyPart(), container.querySelectorAll("[data-part-card]").length)
     );
     renumber();
+    form.dispatchEvent(new Event("change", { bubbles: true }));
   });
 
   container.addEventListener("click", (event) => {
@@ -1107,6 +1548,7 @@ function bindPartEditor(form) {
     }
 
     renumber();
+    form.dispatchEvent(new Event("change", { bubbles: true }));
   });
 }
 
@@ -1518,6 +1960,284 @@ function bindExpandedNoteViewer(modalRoot) {
   });
 }
 
+function bindThumbnailGallery(container) {
+  const gallery =
+    container instanceof HTMLElement
+      ? container.querySelector("[data-thumbnail-preview]")
+      : null;
+
+  if (!(gallery instanceof HTMLElement)) {
+    return null;
+  }
+
+  let items = [];
+
+  try {
+    const parsed = JSON.parse(gallery.getAttribute("data-thumbnail-items") || "[]");
+    items = Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error(error);
+  }
+
+  let currentIndex = 0;
+  let temporaryItem = null;
+
+  const getActiveItem = () => temporaryItem || items[currentIndex] || null;
+
+  const render = () => {
+    const activeItem = getActiveItem();
+    const showNavigation = !temporaryItem && items.length > 1;
+    const counterLabel = temporaryItem
+      ? "미리보기"
+      : items.length > 0
+        ? `${currentIndex + 1} / ${items.length}`
+        : "썸네일 없음";
+    const caption = temporaryItem
+      ? temporaryItem.caption || temporaryItem.title || "업로드 전 미리보기"
+      : activeItem?.caption || activeItem?.title || "원본 비율로 전체 보기";
+
+    gallery.setAttribute("data-thumbnail-current", activeItem?.url || "");
+    gallery.innerHTML = `
+      <div class="workspace-thumbnail-gallery__frame">
+        <button
+          type="button"
+          class="workspace-thumbnail-gallery__nav workspace-thumbnail-gallery__nav--prev ${showNavigation ? "" : "hidden"}"
+          data-thumbnail-nav="prev"
+          aria-label="이전 썸네일"
+        >
+          &larr;
+        </button>
+        <button
+          type="button"
+          class="workspace-thumbnail-gallery__nav workspace-thumbnail-gallery__nav--next ${showNavigation ? "" : "hidden"}"
+          data-thumbnail-nav="next"
+          aria-label="다음 썸네일"
+        >
+          &rarr;
+        </button>
+        <a
+          href="${escapeHtml(activeItem?.url || "#")}"
+          target="_blank"
+          rel="noreferrer"
+          class="workspace-thumbnail-gallery__link ${activeItem ? "" : "hidden"}"
+          data-thumbnail-preview-link
+        >
+          <img
+            src="${escapeHtml(activeItem?.url || "")}"
+            alt="${escapeHtml(activeItem?.title || "썸네일 레퍼런스")}"
+            class="workspace-thumbnail-gallery__image"
+            data-thumbnail-preview-image
+          />
+        </a>
+        <div class="workspace-thumbnail-gallery__empty ${activeItem ? "hidden" : ""}" data-thumbnail-preview-empty>
+          아직 업로드된 썸네일이 없습니다.
+        </div>
+        <div class="workspace-thumbnail-gallery__meta">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-600">${escapeHtml(counterLabel)}</span>
+            <span class="rounded-full bg-white/90 px-3 py-1 text-xs text-slate-500">${escapeHtml(caption)}</span>
+          </div>
+        </div>
+      </div>
+      <div class="workspace-thumbnail-gallery__strip ${items.length > 1 ? "" : "hidden"}" data-thumbnail-strip>
+        ${items
+          .map(
+            (item, index) => `
+              <button
+                type="button"
+                class="workspace-thumbnail-gallery__thumb ${!temporaryItem && index === currentIndex ? "is-active" : ""}"
+                data-thumbnail-item
+                data-thumbnail-index="${index}"
+                aria-label="${escapeHtml(item.title || `썸네일 ${index + 1}`)}"
+              >
+                <img
+                  src="${escapeHtml(item.url || "")}"
+                  alt="${escapeHtml(item.title || `썸네일 ${index + 1}`)}"
+                  class="workspace-thumbnail-gallery__thumb-image"
+                />
+              </button>
+            `
+          )
+          .join("")}
+      </div>
+    `;
+  };
+
+  gallery.addEventListener("click", (event) => {
+    const target = event.target;
+
+    if (!(target instanceof HTMLElement) || temporaryItem) {
+      return;
+    }
+
+    const previousButton = target.closest("[data-thumbnail-nav='prev']");
+    const nextButton = target.closest("[data-thumbnail-nav='next']");
+    const itemButton = target.closest("[data-thumbnail-item]");
+
+    if (itemButton instanceof HTMLButtonElement) {
+      currentIndex = Number(itemButton.getAttribute("data-thumbnail-index") || currentIndex);
+      render();
+      return;
+    }
+
+    if (previousButton) {
+      currentIndex = currentIndex === 0 ? items.length - 1 : currentIndex - 1;
+      render();
+      return;
+    }
+
+    if (nextButton) {
+      currentIndex = currentIndex === items.length - 1 ? 0 : currentIndex + 1;
+      render();
+    }
+  });
+
+  render();
+
+  return {
+    setTemporaryItem(item) {
+      temporaryItem = item ? { ...item } : null;
+      render();
+    },
+    clearTemporaryItem() {
+      temporaryItem = null;
+      render();
+    },
+    getCurrentUrl() {
+      return getActiveItem()?.url || "";
+    }
+  };
+}
+
+function bindAttachmentFormV2(form, contentId, thumbnailGallery) {
+  if (!(form instanceof HTMLFormElement)) {
+    return;
+  }
+
+  const fileInput = form.querySelector("[data-attachment-file-input]");
+  const fileLabel = form.querySelector("[data-attachment-file-label]");
+  const fileName = form.querySelector("[data-attachment-file-name]");
+  const submitButton = form.querySelector("[data-attachment-submit]");
+  const kindSelect = form.querySelector('select[name="kind"]');
+  let previewObjectUrl = null;
+
+  const clearObjectUrl = () => {
+    if (previewObjectUrl) {
+      URL.revokeObjectURL(previewObjectUrl);
+      previewObjectUrl = null;
+    }
+  };
+
+  const syncAccept = () => {
+    if (fileInput instanceof HTMLInputElement) {
+      fileInput.accept =
+        kindSelect instanceof HTMLSelectElement && kindSelect.value === "thumbnail"
+          ? "image/*"
+          : "";
+    }
+  };
+
+  const syncThumbnailPreview = () => {
+    const selectedFile =
+      fileInput instanceof HTMLInputElement ? fileInput.files?.[0] : null;
+    const isThumbnailKind =
+      kindSelect instanceof HTMLSelectElement && kindSelect.value === "thumbnail";
+
+    if (
+      thumbnailGallery &&
+      isThumbnailKind &&
+      selectedFile instanceof File &&
+      selectedFile.type.startsWith("image/")
+    ) {
+      clearObjectUrl();
+      previewObjectUrl = URL.createObjectURL(selectedFile);
+      thumbnailGallery.setTemporaryItem({
+        url: previewObjectUrl,
+        title: selectedFile.name,
+        caption: "업로드 전 미리보기"
+      });
+      return;
+    }
+
+    clearObjectUrl();
+    thumbnailGallery?.clearTemporaryItem();
+  };
+
+  const syncFileState = () => {
+    const selectedFile =
+      fileInput instanceof HTMLInputElement ? fileInput.files?.[0] : null;
+
+    if (fileLabel instanceof HTMLElement) {
+      fileLabel.textContent = selectedFile ? "파일 변경" : "파일 선택";
+    }
+
+    if (fileName instanceof HTMLElement) {
+      fileName.textContent = selectedFile
+        ? `선택된 파일: ${selectedFile.name}`
+        : "선택된 파일이 없습니다.";
+    }
+
+    syncThumbnailPreview();
+  };
+
+  syncAccept();
+  syncFileState();
+
+  kindSelect?.addEventListener("change", () => {
+    syncAccept();
+    syncThumbnailPreview();
+  });
+  fileInput?.addEventListener("change", syncFileState);
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const formData = new FormData(form);
+    const file = formData.get("file");
+    const kind = String(formData.get("kind") || "reference");
+
+    if (!(file instanceof File) || file.size === 0) {
+      showToast("업로드할 파일을 선택해 주세요.", "error");
+      return;
+    }
+
+    if (kind === "thumbnail" && !file.type.startsWith("image/")) {
+      showToast("썸네일은 이미지 파일만 업로드할 수 있습니다.", "error");
+      return;
+    }
+
+    const originalLabel =
+      submitButton instanceof HTMLButtonElement ? submitButton.textContent : null;
+
+    if (submitButton instanceof HTMLButtonElement) {
+      submitButton.disabled = true;
+      submitButton.textContent = "업로드 중...";
+    }
+
+    try {
+      await uploadAttachment({
+        contentId: String(formData.get("contentId")),
+        title: String(formData.get("title") || ""),
+        kind,
+        file
+      });
+
+      clearObjectUrl();
+      thumbnailGallery?.clearTemporaryItem();
+      await loadWorkspace();
+      openContentDetail(contentId);
+      showToast("첨부 파일이 업로드되었습니다.", "success");
+    } catch (error) {
+      console.error(error);
+      showToast(error.message || "첨부 파일 업로드에 실패했습니다.", "error");
+    } finally {
+      if (submitButton instanceof HTMLButtonElement) {
+        submitButton.disabled = false;
+        submitButton.textContent = originalLabel || "첨부 업로드";
+      }
+    }
+  });
+}
+
 function bindAttachmentForm(form, contentId) {
   if (!(form instanceof HTMLFormElement)) {
     return;
@@ -1683,39 +2403,8 @@ function bindAttachmentForm(form, contentId) {
   });
 }
 
-function collectContentFormPayload(formElement) {
-  const form = new FormData(formElement);
-  const partIds = form.getAll("partId");
-  const partTitles = form.getAll("partTitle");
-  const partIdeas = form.getAll("partIdea");
-  const partScripts = form.getAll("partScript");
-  const partFilmings = form.getAll("partFilming");
-  const partEditings = form.getAll("partEditing");
-  const parts = partIds.map((value, index) =>
-    createEmptyPart({
-      id: String(value || ""),
-      title: String(partTitles[index] || ""),
-      idea: String(partIdeas[index] || ""),
-      script: String(partScripts[index] || ""),
-      filming: String(partFilmings[index] || ""),
-      editing: String(partEditings[index] || "")
-    })
-  );
-
-  return buildContentSavePayload({
-    contentId: String(form.get("contentId") || ""),
-    title: String(form.get("title") || ""),
-    status: String(form.get("status") || "idea"),
-    publishDate: String(form.get("publishDate") || ""),
-    sections: {
-      idea: String(form.get("sectionIdea") || ""),
-      thumbnail: String(form.get("sectionThumbnail") || ""),
-      script: String(form.get("sectionScript") || ""),
-      filming: String(form.get("sectionFilming") || ""),
-      editing: String(form.get("sectionEditing") || "")
-    },
-    parts
-  });
+function collectContentFormPayload(formElement, options = {}) {
+  return buildContentPayloadFromDraft(collectContentDraftData(formElement), options);
 }
 
 function openCreateContentModal() {
@@ -1801,19 +2490,20 @@ function openContentDetail(contentId) {
   const attachments = state.attachmentsByContent[contentId] || [];
 
   openModal(renderContentDetail(content, feedback, attachments), { wide: true });
-  bindPartEditor(refs.modal?.querySelector("[data-content-edit-form]"));
+  const form = refs.modal?.querySelector("[data-content-edit-form]");
+  bindPartEditor(form);
   bindExpandedNoteViewer(refs.modal);
+  createContentAutosaveController(form, content);
+  const thumbnailGallery = bindThumbnailGallery(refs.modal);
 
   refs.modal
     .querySelector("[data-content-edit-form]")
     ?.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const payload = collectContentFormPayload(event.currentTarget);
-      await mutateWorkspace(
-        "updateContent",
-        payload,
-        { reopenContentId: contentId }
-      );
+      await flushContentAutosave({
+        force: true,
+        toastOnSuccess: false
+      });
       showToast("콘텐츠 기획안이 업데이트되었습니다.", "success");
     });
 
@@ -1833,7 +2523,7 @@ function openContentDetail(contentId) {
       showToast("댓글이 추가되었습니다.", "success");
     });
 
-  bindAttachmentForm(refs.modal?.querySelector("[data-attachment-form]"), contentId);
+  bindAttachmentFormV2(refs.modal?.querySelector("[data-attachment-form]"), contentId, thumbnailGallery);
 }
 
 async function uploadAttachment({ contentId, title, kind, file }) {
@@ -1930,7 +2620,48 @@ function openModal(content, options = {}) {
   refs.modal.classList.remove("hidden");
 }
 
+async function requestCloseModal() {
+  if (!refs.modal || refs.modal.classList.contains("hidden")) {
+    return;
+  }
+
+  const controller = state.modalAutosave;
+
+  if (controller?.closePromise) {
+    return controller.closePromise;
+  }
+
+  if (!controller) {
+    closeModal();
+    return;
+  }
+
+  controller.closePromise = (async () => {
+    try {
+      await flushContentAutosave({
+        force: true,
+        toastOnSuccess: false,
+        toastOnError: true
+      });
+      const shouldRefreshWorkspace = controller.hasCommittedChanges;
+      closeModal();
+
+      if (shouldRefreshWorkspace) {
+        renderWorkspace();
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      controller.closePromise = null;
+    }
+  })();
+
+  return controller.closePromise;
+}
+
 function closeModal() {
+  clearAutosaveTimer(state.modalAutosave);
+  state.modalAutosave = null;
   refs.modal.classList.add("hidden");
   refs.modal.innerHTML = "";
 }
