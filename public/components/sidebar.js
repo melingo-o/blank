@@ -8,6 +8,14 @@ const TAB_LABELS = {
 };
 
 const numberFormatter = new Intl.NumberFormat("ko-KR");
+const EDITOR_COLOR_OPTIONS = new Set([
+  "slate",
+  "blue",
+  "emerald",
+  "amber",
+  "rose",
+  "violet"
+]);
 
 function escapeHtml(value = "") {
   return String(value)
@@ -55,6 +63,23 @@ function initialsFromName(name = "") {
     .toUpperCase();
 }
 
+function normalizeEditorColor(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return EDITOR_COLOR_OPTIONS.has(normalized) ? normalized : "slate";
+}
+
+function buildWorkspaceActorLabel(user) {
+  const nickname = String(user?.workspaceProfile?.nickname || "").trim().toLowerCase();
+  const loginId = String(user?.loginId || "").trim().toLowerCase();
+  const source = nickname || loginId || initialsFromName(user?.displayName || user?.email || "WU");
+
+  if (source === "admin") {
+    return "admin";
+  }
+
+  return source.replace(/[^a-z0-9]+/g, "").slice(0, 4) || "user";
+}
+
 export function renderSidebar({
   root,
   creator,
@@ -69,6 +94,9 @@ export function renderSidebar({
   const channelUrl = creator?.channel_url || "";
   const isAdmin = Boolean(user?.isCompanyAdmin);
   const availableCreators = Array.isArray(creators) ? creators : [];
+  const workspaceNickname = user?.workspaceProfile?.nickname || "";
+  const workspaceColor = normalizeEditorColor(user?.workspaceProfile?.color);
+  const workspaceActorLabel = buildWorkspaceActorLabel(user);
 
   root.innerHTML = `
     <div class="workspace-sidebar__chrome relative h-full">
@@ -206,20 +234,37 @@ export function renderSidebar({
           <div class="rounded-[22px] border border-slate-200 bg-white px-4 py-4">
             <p class="text-xs font-medium text-slate-500">Logged in as</p>
             <div class="mt-2">
-              <p class="truncate text-sm font-semibold text-slate-900">${escapeHtml(user?.displayName || user?.email || "Workspace user")}</p>
+              <div class="flex items-center gap-3">
+                <span class="workspace-editor-badge" data-editor-color="${escapeHtml(workspaceColor)}">
+                  ${escapeHtml(workspaceActorLabel)}
+                </span>
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-semibold text-slate-900">${escapeHtml(workspaceNickname || user?.displayName || user?.email || "Workspace user")}</p>
+                  <p class="truncate text-xs text-slate-500">${escapeHtml(user?.loginId || user?.email || "")}</p>
+                </div>
+              </div>
               <p class="truncate text-xs text-slate-500">${escapeHtml(user?.email || "")}</p>
             </div>
             <div class="mt-4 flex items-center justify-between gap-3">
               <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
                 ${escapeHtml(isAdmin ? "Company admin" : "Assigned creator")}
               </span>
-              <button
-                type="button"
-                data-sign-out
-                class="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
-              >
-                Sign out
-              </button>
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  data-open-profile-settings
+                  class="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  작업자 설정
+                </button>
+                <button
+                  type="button"
+                  data-sign-out
+                  class="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  Sign out
+                </button>
+              </div>
             </div>
           </div>
         </div>
