@@ -243,10 +243,58 @@
   box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
 }
 
+.workspace-editor-badge[data-editor-color="slate"] {
+  background: linear-gradient(135deg, #0f172a, #334155);
+}
+
+.workspace-editor-badge[data-editor-color="blue"] {
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+}
+
+.workspace-editor-badge[data-editor-color="emerald"] {
+  background: linear-gradient(135deg, #047857, #10b981);
+}
+
+.workspace-editor-badge[data-editor-color="amber"] {
+  background: linear-gradient(135deg, #b45309, #f59e0b);
+}
+
+.workspace-editor-badge[data-editor-color="rose"] {
+  background: linear-gradient(135deg, #be123c, #f43f5e);
+}
+
+.workspace-editor-badge[data-editor-color="violet"] {
+  background: linear-gradient(135deg, #6d28d9, #8b5cf6);
+}
+
 .workspace-editor-badge--inline {
   min-width: 1.7rem;
   height: 1.7rem;
   font-size: 0.66rem;
+}
+
+.workspace-color-option {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.workspace-color-option.is-selected {
+  border-color: rgba(15, 23, 42, 0.9);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.workspace-color-option:has(input:checked) {
+  border-color: rgba(15, 23, 42, 0.9);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
 }
 
 .workspace-thumbnail-gallery__frame {
