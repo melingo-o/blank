@@ -45,23 +45,32 @@ function normalizeEditorMetadata(value) {
     return null;
   }
 
+  const loginId = normalizeText(value.loginId).toLowerCase();
+  const nickname = normalizeText(value.nickname);
   const displayName = normalizeText(value.displayName);
   const email = normalizeText(value.email).toLowerCase();
-  const fallbackSource = displayName || email;
+  const color = normalizeText(value.color).toLowerCase() || "slate";
+  const fallbackSource = nickname || loginId || displayName || email;
   const fallbackLabel = fallbackSource
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "")
-    .slice(0, fallbackSource.length <= 3 ? 3 : 4);
-  const label = normalizeText(value.label || fallbackLabel).toLowerCase().slice(0, 4);
+    .slice(0, fallbackSource === "admin" ? 5 : 4);
+  const normalizedLabel = normalizeText(value.label || fallbackLabel).toLowerCase();
+  const label = normalizedLabel === "admin"
+    ? normalizedLabel.slice(0, 5)
+    : normalizedLabel.slice(0, 4);
 
-  if (!label && !displayName && !email) {
+  if (!label && !loginId && !nickname && !displayName && !email) {
     return null;
   }
 
   return {
+    loginId,
+    nickname,
     label,
     displayName,
-    email
+    email,
+    color
   };
 }
 
