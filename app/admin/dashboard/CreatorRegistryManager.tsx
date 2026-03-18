@@ -1,6 +1,5 @@
 "use client"
 
-import Link from "next/link"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
@@ -36,6 +35,7 @@ type CreatorRegistryManagerProps = {
   callAdminCreatorApi: AdminCreatorApiCaller
   onRequestAccountSetup: (creatorId: string) => void
   onCreatorsChanged: (preferredCreatorId?: string | null) => Promise<void> | void
+  onOpenWorkspace: (workspacePath: string) => Promise<void> | void
 }
 
 function slugifyCreatorId(value: string) {
@@ -70,7 +70,8 @@ export default function CreatorRegistryManager({
   creators,
   callAdminCreatorApi,
   onRequestAccountSetup,
-  onCreatorsChanged
+  onCreatorsChanged,
+  onOpenWorkspace
 }: CreatorRegistryManagerProps) {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -342,14 +343,15 @@ export default function CreatorRegistryManager({
                     >
                       {issued ? "계정관리" : "계정생성"}
                     </button>
-                    {issued && (
-                      <Link
-                        href={`/workspace/${creator.id}`}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void onOpenWorkspace(`/workspace/${creator.id}`)
+                        }
                         className="rounded-full border border-border px-4 py-2 text-[11px] uppercase tracking-[0.25em] text-foreground boty-transition hover:bg-muted"
                       >
                         워크스페이스 이동
-                      </Link>
-                    )}
+                      </button>
                     {creator.channel_url && (
                       <a
                         href={creator.channel_url}
